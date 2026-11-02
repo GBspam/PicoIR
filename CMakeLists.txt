@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(picoir_05 C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-add_library(picoir STATIC src/ir_protocol.c src/remote_db.c src/signal_analysis.c src/gameboy_ir.c src/gameboy_link.c src/ir_timing.c src/capture_frame.c src/console.c
+add_library(picoir STATIC src/ir_protocol.c src/remote_db.c src/signal_analysis.c src/gameboy_ir.c src/gameboy_link.c src/ir_timing.c src/capture_frame.c src/console.c)
 target_include_directories(picoir PUBLIC include)
 add_executable(test_ir_protocol tests/test_ir_protocol.c)
 target_link_libraries(test_ir_protocol PRIVATE picoir)
