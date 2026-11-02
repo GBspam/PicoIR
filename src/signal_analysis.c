@@ -68,5 +68,10 @@ bool pir_decode_samples(const uint32_t *sample_words, size_t word_count,
                                            sample_rate_hz, mark_level,
                                            edges, edge_capacity, edge_count))
         return false;
-    return pir_decode(edges, *edge_count, decoded);
+    size_t first_mark = 0;
+    while (first_mark < *edge_count && !edges[first_mark].mark)
+        ++first_mark;
+    if (first_mark == *edge_count)
+        return false;
+    return pir_decode(edges + first_mark, *edge_count - first_mark, decoded);
 }
