@@ -1,49 +1,34 @@
-# PicoIR
+# PicoIR 0.5 — CDC1 Console Command Layer
 
-PicoIR is an infrared communications platform targeting the original Raspberry Pi Pico (RP2040).
+This repository now includes the recovered portable C source snapshot for PicoIR 0.5, along with its host tests and build configuration. The implementation is hardware-independent and is not yet a complete RP2040 firmware image.
 
-## Project goals
+## Commands implemented
 
-- Expose two independent USB CDC interfaces: a transparent binary pipe and a separate configuration/diagnostics console.
-- Use RP2040 PIO and DMA for timing-sensitive infrared capture and transmission.
-- Support consumer IR encoding/decoding, raw waveform learning and replay, and exportable remote-control records.
-- Use a discrete 940 nm IR optical front end rather than a dedicated IR encoder/decoder IC.
-- Develop IrDA and selected game-console accessory profiles as later protocol families.
+- `HELP`
+- `REMOTE LIST`
+- `REMOTE LEARN START` / `REMOTE LEARN STOP` (arms/disarms learning state; receiver integration must feed captures and decoded frames)
+- `REMOTE SAVE name` (saves the most recent decoded frame if present; otherwise saves the most recent bounded raw capture)
+- `REMOTE DELETE name`
+- `REMOTE SEND protocol address command [TOGGLE]`
+- `REMOTE SEND SAVED name`
+- `RAW EXPORT CSV` / `RAW EXPORT JSON` (exports the remote database)
 
-## Development status
+All I/O is injected through callbacks. The transmit callback must copy or consume the waveform synchronously before returning; the console itself does not own the PIO/DMA transmitter. Raw replay passes the saved edges and carrier metadata to a separate backend callback.
 
-The local development snapshot has a portable C consumer-IR protocol layer, a RAM-backed remote database, signal-analysis helpers, and a hardware-independent CDC1 command dispatcher. The protocol library includes initial transmit encoders for NEC/NEC Extended, Sony SIRC, RC5, RC6, Samsung, Panasonic, and JVC; receive decoding and protocol edge cases remain incomplete.
+## Boundaries that remain explicit
 
-**Repository sync status:** this GitHub branch currently contains project documentation only. The source files, complete local commit ancestry, and version tags have not yet been mirrored here. Therefore, the build commands below apply to the local source snapshot, not this documentation-only branch.
+- This is a command-dispatch module, not the complete TinyUSB CDC1 line editor or USB application loop.
+- The receiver task must call `pir_console_set_capture()` and/or `pir_console_set_decoded()` when capture/decode results arrive. The `LEARN START` state is an arm flag, not a replacement for that receiver integration.
+- `REMOTE SEND SAVED` re-encodes decoded entries. Exact waveform reproduction is available only for raw entries.
+- Database remains RAM-only; safe persistent flash storage and power-loss-safe records are not implemented here.
+- Protocol encoder/decoder limitations documented in earlier packages remain, especially RC5/RC6 decoding and full Panasonic/Kaseikyo semantics.
+- TinyUSB dual-CDC integration, PIO/DMA waveform capture/transmit, custom MicroPython integration, and physical frontend validation are not included in this source snapshot.
+- The repository commit created for this source sync adds the current source snapshot after the documentation commits; it does not recreate the original local commit ancestry or the `v0.1`–`v0.5` Git tags. The local history bundle remains the way to preserve that complete local history.
 
-The command dispatcher is not yet a complete TinyUSB CDC application. The remote database is RAM-only. RP2040 PIO/DMA, dual-CDC USB integration, MicroPython integration, and physical hardware validation are not complete.
-
-## Build and host tests
-
-For the local source snapshot, use CMake and a C11 compiler:
+## Build and test on a host
 
 ```sh
 cmake -S . -B build
-cmake --build build
+cmake --build build -j2
 ctest --test-dir build --output-on-failure
 ```
-
-The local host test suite passed 3/3 tests. Host tests do not imply hardware validation.
-
-## Version history
-
-- **v0.1** — archived project specification.
-- **v0.2** — source-recovery checkpoint; original v0.2 source archive was not recovered.
-- **v0.3** — portable consumer IR protocol layer.
-- **v0.4** — remote database and signal-analysis helpers.
-- **v0.5** — CDC1 command dispatcher.
-
-The v0.1 and v0.2 tags are documentation/recovery checkpoints, not claims of recovered firmware source. See `CHANGELOG.md` and `RELEASE_NOTES.md` for details.
-
-## Hardware and safety
-
-The IR LED driver must use appropriate current limiting and transistor drive. Verify electrical limits and optical performance on the target hardware before use. No physical validation of the optical front end or PIO timing is claimed.
-
-## License
-
-No license has been selected yet. All rights are reserved by default until a license is added.
