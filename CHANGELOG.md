@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8 (in development)
+- Fixed Sony SIRC12/SIRC15/SIRC20 decoding when the final data space is merged with the long inter-frame gap.
+- Added host round-trip regression tests for all three Sony SIRC frame lengths.
+- Hardware timing and interoperability remain unverified.
+
 ## v0.7 (in development)
 - Added allocation-free RC6 mode-0 decoding for start/mode bits, the double-width toggle bit, 8-bit address, and 8-bit command.
 - Added RC6 encode/decode round-trip regression coverage.
@@ -11,33 +16,24 @@
 - Added host regression tests for RC5 round-trip decoding and RC6 frame structure.
 - RC6 decoding, hardware waveform timing, and physical interoperability remain unverified.
 
-## v0.5 — CDC1 command dispatcher
+## v0.5
+- Added hardware-independent CDC1 command dispatch for help, remote listing/learning state, save/delete/send operations, and CSV/JSON export commands.
+- Added console host tests.
+- Learning commands require external capture integration; the dispatcher is not wired to TinyUSB or receiver hardware.
 
-- Added a hardware-independent CDC1 command dispatcher.
-- Added remote listing, learn arming/stopping, decoded/raw save/delete/send commands, and CSV/JSON export dispatch.
-- Added console dispatcher host tests.
-- The dispatcher still requires integration with TinyUSB, a line editor, and live capture/TX backends.
-
-## v0.4 — Remote database and signal analysis
-
+## v0.4
 - Added a fixed-capacity RAM-only remote database.
-- Added decoded and raw record storage, lookup/deletion, and CSV/JSON streaming export helpers.
-- Added carrier-period measurement helpers and capture analysis entry points.
-- Persistent storage and complete raw-edge CSV serialization are not implemented.
+- Added decoded/raw entry operations and JSON/CSV metadata export.
+- Added carrier-period measurement and capture-analysis helpers.
+- No flash persistence; carrier analysis requires actual carrier-cycle period samples, not just demodulated receiver edges.
 
-## v0.3 — Consumer IR protocol layer
+## v0.3
+- Added a portable consumer-IR protocol layer with initial encoding/decoding support and host tests.
+- Protocol support is partial. RC5/RC6 decode and complete Panasonic/Kaseikyo semantics are not implemented; variants and mappings need verification.
 
-- Added a portable C protocol layer.
-- Added initial transmit encoders for NEC, NEC Extended, Sony SIRC, RC5, RC6, Samsung, Panasonic, and JVC.
-- Added initial receive decoding for selected protocols.
-- Protocol edge cases and full RC5/RC6 decode support remain incomplete.
+## v0.2 (recovery checkpoint)
+- No original v0.2 source archive was found in the recovered project materials. This tag records the point in the reconstructed history; it is not a claim that a complete v0.2 firmware implementation exists.
 
-## v0.2 — Source-recovery checkpoint
-
-- Recorded the recovery status of the earlier project source.
-- The original v0.2 source archive was not recovered; this tag is a documentation checkpoint.
-
-## v0.1 — Project specification
-
-- Archived the initial project requirements and architecture notes.
-- This tag is a specification snapshot, not a complete firmware release.
+## v0.1 (design snapshot)
+- Captured the initial RP2040 architecture, dual-CDC USB intent, PIO/DMA waveform path, discrete IR front-end goals, protocol roadmap, and proposed GPIO assignments.
+- Documentation only; no complete v0.1 firmware source was recovered.

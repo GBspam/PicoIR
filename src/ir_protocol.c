@@ -285,7 +285,15 @@ static bool decode_sony(const pir_edge_t *e,size_t n,size_t start,unsigned bits,
     if (!mark_space(e,n,start,true,2400) || !mark_space(e,n,start+1,false,600)) return false;
     uint64_t v=0; size_t i=start+2;
     for (unsigned b=0;b<bits;b++,i+=2) {
-        if (i+1>=n || !e[i].mark || e[i+1].mark || !near_us(e[i+1].duration_us,600,TOLERANCE_PCT)) return false;
+        if (i+1>=n || !e[i].mark || e[i+1].mark) return false;
+        /* The encoder's final 45 ms gap is merged into the last data space.
+         * Real captures may have a different inter-frame gap, so only require
+         * the final space to be at least one valid SIRC space long. */
+        if (b + 1u == bits) {
+            if (e[i+1].duration_us < 600u) return false;
+        } else if (!near_us(e[i+1].duration_us,600,TOLERANCE_PCT)) {
+            return false;
+        }
         if (near_us(e[i].duration_us,1200,TOLERANCE_PCT)) v |= (uint64_t)1u<<b;
         else if (!near_us(e[i].duration_us,600,TOLERANCE_PCT)) return false;
     }

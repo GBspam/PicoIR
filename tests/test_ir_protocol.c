@@ -14,8 +14,29 @@ int main(void) {
     assert(pir_encode(PIR_PROTO_NEC, 0x20, 0x10, true, false, &w));
     assert(pir_decode(w.edges, w.count, &d) && d.repeat);
 
-    assert(pir_encode(PIR_PROTO_SONY_SIRC12, 0x05, 0x15, false, false, &w));
-    assert(w.count >= 26);
+    /* Sony SIRC's final data space is followed by a long inter-frame gap.
+     * The edge builder merges those adjacent spaces, which the decoder must
+     * accept without weakening validation of the preceding bit spaces. */
+    const struct {
+        pir_protocol_t protocol;
+        uint32_t address;
+        uint32_t command;
+        uint8_t bits;
+    } sony_cases[] = {
+        { PIR_PROTO_SONY_SIRC12, 0x05, 0x15, 12 },
+        { PIR_PROTO_SONY_SIRC15, 0xA6, 0x35, 15 },
+        { PIR_PROTO_SONY_SIRC20, 0x1234, 0x55, 20 },
+    };
+    for (size_t i = 0; i < sizeof(sony_cases) / sizeof(sony_cases[0]); ++i) {
+        assert(pir_encode(sony_cases[i].protocol, sony_cases[i].address,
+                          sony_cases[i].command, false, false, &w));
+        assert(w.count >= (size_t)sony_cases[i].bits * 2u + 2u);
+        assert(pir_decode(w.edges, w.count, &d));
+        assert(d.protocol == sony_cases[i].protocol);
+        assert(d.address == sony_cases[i].address);
+        assert(d.command == sony_cases[i].command);
+        assert(d.bit_count == sony_cases[i].bits);
+    }
 
     /* RC5 must round-trip address, command and toggle through Manchester runs. */
     assert(pir_encode(PIR_PROTO_RC5, 0x12, 0x2D, false, true, &w));
