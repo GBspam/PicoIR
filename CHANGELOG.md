@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.18
+- Corrected JVC wire layout to use the full 8-bit address followed by the 8-bit command, LSB-first, and added a spec-derived external reference fixture.
+- Corrected Samsung32 repeat encoding to emit a complete 32-bit frame rather than an NEC short-repeat burst; added independent Samsung reference-vector and malformed inverse-byte tests.
+- Explicitly limited `PIR_PROTO_PANASONIC` to the legacy 32-bit Panasonic-like subset instead of claiming full Kaseikyo support, and prevented a 48-bit frame prefix from being accepted as that subset.
+- Added malformed-frame regressions and a public-library consumer test linked only against `picoir`.
+- Renamed the root CMake project to `PicoIR`, added GPLv3-only license text, and reconciled Python package license metadata to `GPL-3.0-only`.
+
+
 ## v0.17
 - Corrected RC5 extended-command field encoding, required Samsung command/inverse-byte validation, and forced NEC Extended to retain its 16-bit address representation even when the high byte is zero; added regression tests.
 - Hardened host response deadlines for injected serial objects with `timeout=None`, rejected boolean timeout values, and added timeout regressions.

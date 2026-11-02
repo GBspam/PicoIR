@@ -4,7 +4,7 @@ PicoIR is a universal IR communications platform for the original RP2040-based R
 
 ## Current capabilities
 
-- Portable consumer-IR encoding/decoding with partial protocol coverage, including NEC-family, Sony SIRC, RC5, and RC6 paths. Hardware timing tolerance and interoperability still require physical validation.
+- Portable consumer-IR encoding/decoding with partial protocol coverage, including NEC-family, Sony SIRC, RC5, RC6, JVC (8-bit address + 8-bit command), and Samsung32. Protocol coverage is not a claim of physical interoperability.
 - A separate Game Boy Color byte-level packet codec, host transfer library, and event-driven link-session coordinator. Game-specific pulse timing and physical handshake/status signaling are not implemented; there is no single IR protocol shared by every Game Boy Color game.
 - Generic explicit timing-window classification, packed GPIO sample conversion to mark/space edges, and a portable frame tracker. `pir_decode_samples()` skips leading idle-space runs; `pir_frame_tracker_feed()` reports frame starts, inter-frame-gap ends, and frame timeouts.
 - A CDC1 command-dispatch contract included in the public `picoir` library target, plus a RAM-only remote database and CSV/JSON export helpers.
@@ -33,13 +33,17 @@ All I/O is injected through callbacks. The transmit callback must copy or consum
 
 `RAW EXPORT CSV` is metadata-only and omits raw edge durations and toggle state; it is not suitable for waveform backup or restore. `RAW EXPORT JSON` includes mark/duration edge pairs and carrier frequency for raw entries, and protocol/address/command/toggle metadata for decoded entries. Decoded entries have no captured edges and must be re-encoded to transmit, so JSON is not a bit-exact waveform archive for them. Neither format is a versioned persistence format.
 
+## License
+
+PicoIR is licensed under **GNU GPL version 3 only**. See [`LICENSE`](LICENSE). The Python package metadata uses the same `GPL-3.0-only` identifier.
+
 ## Known boundaries
 
 - This is a command-dispatch module, not the complete TinyUSB CDC1 line editor or USB application loop.
 - The receiver task must call `pir_console_set_capture()` and/or `pir_console_set_decoded()` when capture/decode results arrive. The `LEARN START` state is an arm flag, not a replacement for receiver integration.
 - `REMOTE SEND SAVED` re-encodes decoded entries. Exact waveform reproduction is available only for raw entries.
 - The database remains RAM-only; safe persistent flash storage and power-loss-safe records are not implemented.
-- Panasonic/Kaseikyo encoding and decoding are partial, and the public API does not expose all extended fields.
+- `PIR_PROTO_PANASONIC` currently means a legacy 32-bit Panasonic-like subset only. Standard 48-bit Kaseikyo/Panasonic is explicitly unsupported because the public API lacks vendor, genre, and parity fields; 48-bit frames are guarded against being misclassified as the 32-bit subset.
 
 ## Validation
 
