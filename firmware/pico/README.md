@@ -34,7 +34,7 @@ Do not start RX and TX simultaneously on one backend instance. Program/SM owners
 - Build with the supported Pico SDK/toolchain and resolve any SDK-version API differences.
 - Add a hardware stress test that deliberately delays block consumption and verifies overrun counts and sequence ordering.
 - Check PIO timing and DMA behavior on RP2040 hardware; verify interrupt rearming at the selected sample rate and buffer size.
-- Add frame-trigger and inter-frame timeout detection on top of the continuous sample stream.
+- Feed completed blocks to `pir_frame_tracker_feed()` to detect frame start, inter-frame gap, and timeout events; automatic wiring into the backend/console remains future work.
 - Measure mark/space timing and carrier frequency with a logic analyzer or photodiode.
 - Verify receiver polarity and propagation delay.
 - Integrate with `pir_decode()`, Game Boy session coordination, physical ACK/NAK/status waveforms, and TinyUSB dual-CDC.

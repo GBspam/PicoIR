@@ -3,6 +3,7 @@
 ## Unreleased
 - Added continuous RP2040 RX capture using two chained DMA channels and caller-owned ping-pong buffers.
 - Added block sequence numbers, oldest-pending-block retrieval, and a saturating overrun counter when an unread buffer is reused.
+- Added a portable allocation-free frame tracker that reports frame-start marks, inter-frame-gap completion, and frame timeout events from packed sample blocks, with active-high/active-low support and boundary tests.
 - Documented buffer alignment/lifetime constraints and the single active streaming-backend limitation. The Pico SDK backend has not been compiled or hardware-tested here.
 - Simplified README project status so versioned history is maintained only in this changelog.
 

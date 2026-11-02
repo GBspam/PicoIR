@@ -6,13 +6,13 @@ PicoIR is an early-stage universal IR communications platform for the original R
 
 - Portable consumer-IR encoding/decoding with partial protocol coverage, including NEC-family, Sony SIRC, RC5, and RC6 paths. Hardware timing tolerance and interoperability still require physical validation.
 - A separate Game Boy Color byte-level packet codec, host transfer library, and event-driven link-session coordinator. Game-specific pulse timing and physical handshake/status signaling are not implemented; there is no single IR protocol shared by every Game Boy Color game.
-- Generic explicit timing-window classification and packed GPIO sample conversion to mark/space edges. `pir_decode_samples()` skips leading idle-space runs before protocol decoding.
+- Generic explicit timing-window classification, packed GPIO sample conversion to mark/space edges, and a portable frame tracker. `pir_decode_samples()` skips leading idle-space runs; `pir_frame_tracker_feed()` reports frame starts, inter-frame-gap ends, and frame timeouts.
 - A CDC1 command-dispatch contract with injected callbacks, plus a RAM-only remote database and CSV/JSON export helpers.
 - An optional Pico SDK backend for finite DMA capture, continuous two-buffer ping-pong DMA capture with sequence numbers and overrun accounting, and PIO carrier-envelope transmission through an external transistor driver.
 
 ## Hardware backend status
 
-The Pico SDK backend is a reusable library, not a complete firmware image. It has not been compiled against the Pico SDK in this environment and has not been tested on RP2040 hardware. Continuous capture requires timely draining of its two caller-owned buffers; the overrun counter reports blocks overwritten before consumption. Frame-trigger/inter-frame-timeout logic is still to be added. See [`firmware/pico/README.md`](firmware/pico/README.md) before wiring hardware.
+The Pico SDK backend is a reusable library, not a complete firmware image. It has not been compiled against the Pico SDK in this environment and has not been tested on RP2040 hardware. Continuous capture requires timely draining of its two caller-owned buffers; the overrun counter reports blocks overwritten before consumption. The portable frame tracker reports start/end/timeout events, but callers must feed completed sample blocks to it; the Pico backend does not wire framing automatically. See [`firmware/pico/README.md`](firmware/pico/README.md) before wiring hardware.
 
 TinyUSB dual-CDC integration, custom MicroPython integration, persistent flash storage, physical Game Boy connection/echo detection, physical ACK/NAK/status signaling, and game-specific timing profiles remain unimplemented or unvalidated. Do not infer Game Boy timings: use cited timing diagrams or provenance-backed capture fixtures.
 
