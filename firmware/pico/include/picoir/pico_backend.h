@@ -17,6 +17,7 @@ typedef struct {
     uint32_t *rx_stream_buffers[PIR_PICO_RX_STREAM_BUFFERS];
     size_t rx_stream_words;
     volatile bool rx_stream_ready[PIR_PICO_RX_STREAM_BUFFERS];
+    volatile bool rx_stream_in_use[PIR_PICO_RX_STREAM_BUFFERS];
     volatile uint32_t rx_stream_sequence[PIR_PICO_RX_STREAM_BUFFERS];
     volatile uint32_t rx_stream_overrun_count;
     volatile uint32_t rx_stream_next_sequence;
@@ -37,13 +38,16 @@ bool pir_pico_rx_done(pir_pico_backend_t *backend);
 void pir_pico_rx_abort(pir_pico_backend_t *backend);
 /* Continuous two-buffer DMA capture. Buffers must be aligned, non-overlapping,
  * and remain allocated until stream_stop(). Use at least 8 words per buffer.
- * The returned buffer is only safe to process until DMA cycles back to it. */
+ * Each successful take creates a lease: call release with its pointer and
+ * sequence after processing. Release returns false if DMA overwrote that block. */
 bool pir_pico_rx_stream_start(pir_pico_backend_t *backend,
                               uint32_t *buffer0, uint32_t *buffer1,
                               size_t words_per_buffer);
 bool pir_pico_rx_stream_take(pir_pico_backend_t *backend,
                              const uint32_t **samples, size_t *word_count,
                              uint32_t *sequence);
+bool pir_pico_rx_stream_release(pir_pico_backend_t *backend,
+                                const uint32_t *samples, uint32_t sequence);
 uint32_t pir_pico_rx_stream_overruns(pir_pico_backend_t *backend);
 void pir_pico_rx_stream_stop(pir_pico_backend_t *backend);
 typedef struct { uint32_t duration_us; bool carrier_on; } pir_pico_tx_run_t;

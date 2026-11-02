@@ -12,8 +12,8 @@ The repository's Pico SDK CI workflow successfully configured and built this bac
 ## Backend behavior
 
 - Finite RX capture samples one digital GPIO input at `sample_rate_hz`; each sample costs two state-machine cycles. DMA fills a caller-owned array of 32-bit words. The oldest sample is bit 31. Sample rate is limited to 1 MHz.
-- Continuous RX capture alternates two caller-owned buffers using chained DMA channels. Each completed block receives a monotonically increasing sequence number. `pir_pico_rx_stream_take()` returns the oldest pending block, and `pir_pico_rx_stream_overruns()` reports blocks overwritten before consumption. Buffers must be 32-bit aligned, non-overlapping, at least eight words each, and remain allocated until stop.
-- Continuous mode uses a shared DMA IRQ handler and supports one active streaming backend instance. Keep block processing short and on the same core; a returned buffer is only stable until DMA cycles back to it. Overrun counts saturate at `UINT32_MAX`.
+- Continuous RX capture alternates two caller-owned buffers using chained DMA channels. Each completed block receives a monotonically increasing sequence number. `pir_pico_rx_stream_take()` returns the oldest available block and leases its buffer. Call `pir_pico_rx_stream_release()` after processing; it returns false if DMA overwrote the leased block. `pir_pico_rx_stream_overruns()` counts completed blocks that replace unread or leased buffers. Buffers must be 32-bit aligned, non-overlapping, at least eight words each, and remain allocated until stop.
+- Continuous mode uses a shared DMA IRQ handler and supports one active streaming backend instance. Keep block processing short and on the same core. A lease detects overwrite but cannot prevent DMA from replacing a buffer while a consumer is using it; check the release result before trusting processed data. Overrun counts saturate at `UINT32_MAX`.
 - RX expects a digital demodulating receiver or comparator output. It is not an ADC path and cannot measure 38 kHz carrier cycles from a typical demodulating receiver.
 - `pir_samples_to_edges()` converts packed samples into mark/space runs and merges equal levels across word boundaries. Set `mark_level=false` for active-low receiver output.
 - TX consumes up to 256 mark/space runs. PIO generates a nominal carrier and gates it on for mark runs. Durations are rounded to carrier periods. Per-run overhead means protocol-grade timing tolerance is not claimed; measure with a logic analyzer.
@@ -34,10 +34,14 @@ Do not start RX and TX simultaneously on one backend instance. Program/SM owners
 
 `RAW EXPORT CSV` is a metadata summary only: it includes name, entry kind, protocol, address, command, carrier frequency, and edge count, but omits edge durations and toggle state. It is not a backup/restore format. `RAW EXPORT JSON` includes raw edge mark/duration pairs and carrier frequency for raw entries; decoded entries export protocol/address/command/toggle metadata and an empty edge list. JSON is higher fidelity, but decoded records must be re-encoded rather than replaying a captured waveform. Neither export is a versioned persistence format.
 
+## On-device stream stress test
+
+The `picoir_rx_stream_stress` executable is built when configuring with `-DPICOIR_BUILD_HARDWARE_TESTS=ON` (the Pico SDK CI workflow compiles it but does not run it). Flash the generated UF2 and open its USB serial console. It checks a bounded delayed-IRQ window, monotonic sequence ordering, lease invalidation and overrun accounting under a delayed consumer, plus stop/restart behavior. The RX input is held low with a pull-down; no optical front-end is needed for DMA lifecycle tests. A successful run is hardware evidence for these lifecycle checks only, not protocol timing or optical interoperability.
+
 ## Validation still required
 
 - Build with the supported Pico SDK/toolchain and resolve any SDK-version API differences.
-- Add a hardware stress test that deliberately delays block consumption and verifies overrun counts and sequence ordering.
+- Run `picoir_rx_stream_stress` on an RP2040 and retain its console output with board/SDK details. This harness is not run by CI.
 - Check PIO timing and DMA behavior on RP2040 hardware; verify interrupt rearming at the selected sample rate and buffer size. This has not been performed; no measured waveform timing or physical interoperability is claimed.
 - Feed completed blocks to `pir_frame_tracker_feed()` to detect frame start, inter-frame gap, and timeout events; automatic wiring into the backend/console remains future work.
 - Measure mark/space timing and carrier frequency with a logic analyzer or photodiode.

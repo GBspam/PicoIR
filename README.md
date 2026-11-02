@@ -8,7 +8,7 @@ PicoIR is a universal IR communications platform for the original RP2040-based R
 - A separate Game Boy Color byte-level packet codec, host transfer library, and event-driven link-session coordinator. Game-specific pulse timing and physical handshake/status signaling are not implemented; there is no single IR protocol shared by every Game Boy Color game.
 - Generic explicit timing-window classification, packed GPIO sample conversion to mark/space edges, and a portable frame tracker. `pir_decode_samples()` skips leading idle-space runs; `pir_frame_tracker_feed()` reports frame starts, inter-frame-gap ends, and frame timeouts.
 - A CDC1 command-dispatch contract included in the public `picoir` library target, plus a RAM-only remote database and CSV/JSON export helpers.
-- An optional Pico SDK backend for finite DMA capture, continuous two-buffer ping-pong DMA capture with sequence numbers and overrun accounting, and PIO carrier-envelope transmission through an external transistor driver.
+- An optional Pico SDK backend for finite DMA capture, continuous two-buffer ping-pong DMA capture with sequence numbers, leased-buffer overwrite detection, and overrun accounting, and PIO carrier-envelope transmission through an external transistor driver.
 
 ## Hardware backend status
 

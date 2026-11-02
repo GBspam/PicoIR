@@ -18,3 +18,12 @@ target_include_directories(picoir_pico_backend PUBLIC
 target_link_libraries(picoir_pico_backend PUBLIC pico_stdlib hardware_clocks hardware_dma hardware_pio)
 pico_generate_pio_header(picoir_pico_backend ${CMAKE_CURRENT_LIST_DIR}/pio/ir_rx_sampler.pio)
 pico_generate_pio_header(picoir_pico_backend ${CMAKE_CURRENT_LIST_DIR}/pio/ir_tx_carrier.pio)
+
+option(PICOIR_BUILD_HARDWARE_TESTS "Build RP2040-only stream stress test firmware" OFF)
+if (PICOIR_BUILD_HARDWARE_TESTS)
+    add_executable(picoir_rx_stream_stress tests/pico_rx_stream_stress.c)
+    target_link_libraries(picoir_rx_stream_stress PRIVATE picoir_pico_backend pico_stdlib hardware_gpio)
+    pico_enable_stdio_usb(picoir_rx_stream_stress 1)
+    pico_enable_stdio_uart(picoir_rx_stream_stress 0)
+    pico_add_extra_outputs(picoir_rx_stream_stress)
+endif()

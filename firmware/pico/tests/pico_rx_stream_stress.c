@@ -1,0 +1,112 @@
+#include "picoir/pico_backend.h"
+#include "hardware/gpio.h"
+#include "pico/platform.h"
+#include "pico/stdlib.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+
+#define STRESS_RX_PIN 2u
+#define STRESS_TX_PIN 3u
+#define STRESS_SAMPLE_RATE_HZ 100000u
+#define STRESS_WORDS_PER_BUFFER 1024u
+#define STRESS_BLOCK_US ((uint32_t)(((uint64_t)STRESS_WORDS_PER_BUFFER * 32u * 1000000u) / STRESS_SAMPLE_RATE_HZ))
+
+static pir_pico_backend_t backend;
+static uint32_t buffers[2][STRESS_WORDS_PER_BUFFER];
+
+static void fail(const char *message) {
+    printf("FAIL: %s\n", message);
+    fflush(stdout);
+    while (true) tight_loop_contents();
+}
+
+static bool wait_for_block(const uint32_t **samples, size_t *words,
+                           uint32_t *sequence, uint32_t timeout_us) {
+    uint64_t deadline = time_us_64() + timeout_us;
+    while (time_us_64() < deadline) {
+        if (pir_pico_rx_stream_take(&backend, samples, words, sequence)) return true;
+        tight_loop_contents();
+    }
+    return false;
+}
+
+static void start_stream(void) {
+    if (!pir_pico_rx_stream_start(&backend, buffers[0], buffers[1],
+                                  STRESS_WORDS_PER_BUFFER))
+        fail("stream start failed");
+}
+
+int main(void) {
+    stdio_init_all();
+    sleep_ms(2000);
+    printf("PicoIR RX stream stress test; sample_rate=%u Hz, block=%u us\n",
+           STRESS_SAMPLE_RATE_HZ, STRESS_BLOCK_US);
+    fflush(stdout);
+
+    if (!pir_pico_backend_init(&backend, pio0, 0, 1, STRESS_RX_PIN, STRESS_TX_PIN,
+                               STRESS_SAMPLE_RATE_HZ, 38000u))
+        fail("backend init failed");
+    gpio_pull_down(STRESS_RX_PIN);
+
+    const uint32_t *samples = NULL;
+    size_t words = 0;
+    uint32_t first_sequence = 0;
+
+    start_stream();
+    if (!wait_for_block(&samples, &words, &first_sequence, STRESS_BLOCK_US * 3u))
+        fail("first block timeout");
+    if (words != STRESS_WORDS_PER_BUFFER) fail("unexpected block size");
+    if (!pir_pico_rx_stream_release(&backend, samples, first_sequence))
+        fail("fresh block lease unexpectedly stale");
+
+    /* Delay the next DMA completion IRQ without blocking long enough to miss
+     * an entire additional buffer interval. */
+    busy_wait_us_32(STRESS_BLOCK_US - 10000u);
+    uint32_t irq_state = save_and_disable_interrupts();
+    busy_wait_us_32(20000u);
+    restore_interrupts(irq_state);
+
+    uint32_t next_sequence = 0;
+    if (!wait_for_block(&samples, &words, &next_sequence, STRESS_BLOCK_US * 2u))
+        fail("no block after delayed IRQ");
+    if ((int32_t)(next_sequence - first_sequence) <= 0)
+        fail("sequence did not advance after delayed IRQ");
+    if (!pir_pico_rx_stream_release(&backend, samples, next_sequence))
+        fail("post-IRQ block lease unexpectedly stale");
+    pir_pico_rx_stream_stop(&backend);
+    if (pir_pico_rx_stream_take(&backend, &samples, &words, &next_sequence))
+        fail("take succeeded after stop");
+
+    start_stream();
+    if (!wait_for_block(&samples, &words, &first_sequence, STRESS_BLOCK_US * 3u))
+        fail("first block timeout after restart");
+    if (first_sequence != 0u) fail("sequence did not reset on restart");
+    if (!pir_pico_rx_stream_release(&backend, samples, first_sequence))
+        fail("restart block lease unexpectedly stale");
+
+    /* Hold a lease across multiple buffer rotations to force overwrite. */
+    if (!wait_for_block(&samples, &words, &first_sequence, STRESS_BLOCK_US * 3u))
+        fail("could not acquire delayed-consumer test block");
+    busy_wait_us_32(STRESS_BLOCK_US * 3u);
+    uint32_t overruns = pir_pico_rx_stream_overruns(&backend);
+    if (overruns == 0u) fail("delayed consumer did not increment overrun counter");
+    if (pir_pico_rx_stream_release(&backend, samples, first_sequence))
+        fail("overwritten lease was incorrectly reported current");
+
+    uint32_t recovered_sequence = 0;
+    if (!wait_for_block(&samples, &words, &recovered_sequence, STRESS_BLOCK_US * 2u))
+        fail("no available block after delayed consumer");
+    if ((int32_t)(recovered_sequence - first_sequence) <= 0)
+        fail("sequence did not advance after consumer delay");
+    if (!pir_pico_rx_stream_release(&backend, samples, recovered_sequence))
+        fail("recovered block lease unexpectedly stale");
+
+    pir_pico_rx_stream_stop(&backend);
+    pir_pico_backend_deinit(&backend);
+    printf("PASS: delayed IRQ, sequence ordering, delayed-consumer overrun, stale lease, stop/restart; overruns=%lu\n",
+           (unsigned long)overruns);
+    fflush(stdout);
+    while (true) tight_loop_contents();
+}

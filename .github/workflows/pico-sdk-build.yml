@@ -25,6 +25,6 @@ jobs:
           path: pico-sdk
           submodules: recursive
       - name: Configure Pico backend
-        run: cmake -S firmware/pico -B build-pico -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk" -DPICO_BOARD=pico
+        run: cmake -S firmware/pico -B build-pico -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk" -DPICO_BOARD=pico -DPICOIR_BUILD_HARDWARE_TESTS=ON
       - name: Build Pico backend
         run: cmake --build build-pico --parallel

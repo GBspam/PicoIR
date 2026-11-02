@@ -26,7 +26,7 @@ static void pir_pico_rx_dma_irq(void) {
     for (unsigned i = 0; i < PIR_PICO_RX_STREAM_BUFFERS; ++i) {
         uint ch = (uint)b->rx_stream_dma[i];
         if (!(pending & (1u << ch))) continue;
-        if (b->rx_stream_ready[i]) {
+        if (b->rx_stream_ready[i] || b->rx_stream_in_use[i]) {
             /* The previous block was not consumed before this buffer filled again. */
             if (b->rx_stream_overrun_count != UINT32_MAX)
                 b->rx_stream_overrun_count++;
@@ -121,7 +121,7 @@ bool pir_pico_rx_stream_start(pir_pico_backend_t *b,uint32_t *buffer0,uint32_t *
     int ch0=dma_claim_unused_channel(false);if(ch0<0)return false;
     int ch1=dma_claim_unused_channel(false);if(ch1<0){dma_channel_unclaim((uint)ch0);return false;}
     b->rx_stream_dma[0]=ch0;b->rx_stream_dma[1]=ch1;b->rx_stream_buffers[0]=buffer0;b->rx_stream_buffers[1]=buffer1;b->rx_stream_words=words;
-    b->rx_stream_ready[0]=false;b->rx_stream_ready[1]=false;b->rx_stream_sequence[0]=0;b->rx_stream_sequence[1]=0;b->rx_stream_overrun_count=0;b->rx_stream_next_sequence=0;
+    b->rx_stream_ready[0]=false;b->rx_stream_ready[1]=false;b->rx_stream_in_use[0]=false;b->rx_stream_in_use[1]=false;b->rx_stream_sequence[0]=0;b->rx_stream_sequence[1]=0;b->rx_stream_overrun_count=0;b->rx_stream_next_sequence=0;
     pio_sm_clear_fifos(b->pio,b->rx_sm);pio_sm_restart(b->pio,b->rx_sm);
     dma_channel_config cfg0=dma_channel_get_default_config((uint)ch0);
     channel_config_set_transfer_data_size(&cfg0,DMA_SIZE_32);channel_config_set_read_increment(&cfg0,false);channel_config_set_write_increment(&cfg0,true);channel_config_set_dreq(&cfg0,pio_get_dreq(b->pio,b->rx_sm,false));channel_config_set_chain_to(&cfg0,(uint)ch1);
@@ -145,12 +145,26 @@ bool pir_pico_rx_stream_take(pir_pico_backend_t *b,const uint32_t **samples,size
     uint32_t irq_state=save_and_disable_interrupts();
     int selected=-1;
     for(unsigned i=0;i<PIR_PICO_RX_STREAM_BUFFERS;i++){
-        if(b->rx_stream_ready[i]&&(selected<0||((int32_t)(b->rx_stream_sequence[i]-b->rx_stream_sequence[selected])<0)))selected=(int)i;
+        if(b->rx_stream_ready[i]&&!b->rx_stream_in_use[i]&&(selected<0||((int32_t)(b->rx_stream_sequence[i]-b->rx_stream_sequence[selected])<0)))selected=(int)i;
     }
     if(selected<0){restore_interrupts(irq_state);return false;}
-    *samples=b->rx_stream_buffers[selected];*word_count=b->rx_stream_words;*sequence=b->rx_stream_sequence[selected];b->rx_stream_ready[selected]=false;
+    *samples=b->rx_stream_buffers[selected];*word_count=b->rx_stream_words;*sequence=b->rx_stream_sequence[selected];b->rx_stream_ready[selected]=false;b->rx_stream_in_use[selected]=true;
     restore_interrupts(irq_state);
     return true;
+}
+bool pir_pico_rx_stream_release(pir_pico_backend_t *b,const uint32_t *samples,uint32_t sequence){
+    if(!b||!b->rx_streaming||!samples)return false;
+    uint32_t irq_state=save_and_disable_interrupts();
+    for(unsigned i=0;i<PIR_PICO_RX_STREAM_BUFFERS;i++){
+        if(b->rx_stream_buffers[i]==samples){
+            bool current=b->rx_stream_in_use[i]&&b->rx_stream_sequence[i]==sequence;
+            b->rx_stream_in_use[i]=false;
+            restore_interrupts(irq_state);
+            return current;
+        }
+    }
+    restore_interrupts(irq_state);
+    return false;
 }
 uint32_t pir_pico_rx_stream_overruns(pir_pico_backend_t *b){
     if(!b)return 0;
@@ -172,7 +186,7 @@ void pir_pico_rx_stream_stop(pir_pico_backend_t *b){
     if(ch1>=0)dma_channel_unclaim((uint)ch1);
     b->rx_stream_dma[0]=-1;b->rx_stream_dma[1]=-1;
     pio_sm_clear_fifos(b->pio,b->rx_sm);
-    b->rx_streaming=false;b->rx_running=false;b->rx_stream_ready[0]=false;b->rx_stream_ready[1]=false;b->rx_stream_words=0;
+    b->rx_streaming=false;b->rx_running=false;b->rx_stream_ready[0]=false;b->rx_stream_ready[1]=false;b->rx_stream_in_use[0]=false;b->rx_stream_in_use[1]=false;b->rx_stream_words=0;
 }
 
 bool pir_pico_tx_start(pir_pico_backend_t *b,const pir_pico_tx_run_t *runs,size_t run_count){

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.19
+- Added explicit leases for continuous RX DMA buffers. Consumers release blocks with their sequence token; release reports if DMA overwrote a block while it was being processed, and overrun accounting includes leased buffers.
+- Added an RP2040-only stream stress-test firmware for delayed IRQs, delayed consumers, sequence ordering, overrun accounting, and stop/restart. Pico SDK CI compiles the harness; it does not run on physical hardware.
+- Updated the Pico backend guide with on-device test instructions and clarified that a successful build does not validate timing or optical interoperability.
+
+
 ## v0.18
 - Corrected JVC wire layout to use the full 8-bit address followed by the 8-bit command, LSB-first, and added a spec-derived external reference fixture.
 - Corrected Samsung32 repeat encoding to emit a complete 32-bit frame rather than an NEC short-repeat burst; added independent Samsung reference-vector and malformed inverse-byte tests.
