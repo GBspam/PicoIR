@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+- Added continuous RP2040 RX capture using two chained DMA channels and caller-owned ping-pong buffers.
+- Added block sequence numbers, oldest-pending-block retrieval, and a saturating overrun counter when an unread buffer is reused.
+- Documented buffer alignment/lifetime constraints and the single active streaming-backend limitation. The Pico SDK backend has not been compiled or hardware-tested here.
+- Simplified README project status so versioned history is maintained only in this changelog.
+
 ## v0.15 (in development)
 - Added `pir_decode_samples()` to connect packed GPIO samples to the existing mark/space converter and protocol decoder; leading idle-space runs are skipped for decoding.
 - Added an end-to-end host regression using a synthetic 1 MHz NEC waveform, plus invalid-input coverage.
@@ -27,7 +33,7 @@
 - The state machine is an event coordinator only; pulse timing, physical ACK/NAK signaling, PIO/DMA, and hardware interoperability remain unimplemented/unverified.
 
 ## v0.10 (in development)
-- Hardened the Python host client by validating finite positive timeouts, non-negative integer retry counts, valid packet chunk sizes, and non-negative integer receive limits.
+- Hardened the Python host client by validating finite positive timeouts, non-negative integer retry counts, valid packet chunk sizes, and non-negative integer receive limits before starting a transfer.
 - Added automated CI to build and test the portable C modules and run Python host tests on pushes and pull requests.
 - CI remains host-only; no hardware timing or optical interoperability is implied.
 

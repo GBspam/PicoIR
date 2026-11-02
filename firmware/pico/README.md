@@ -1,4 +1,4 @@
-# RP2040 PIO/DMA backend (development)
+# RP2040 PIO/DMA backend
 
 This separate Raspberry Pi Pico SDK project builds a reusable backend library, not a complete firmware image. TinyUSB dual-CDC is not integrated.
 
@@ -7,32 +7,35 @@ This separate Raspberry Pi Pico SDK project builds a reusable backend library, n
     cmake -S firmware/pico -B build-pico -DPICO_SDK_PATH=/path/to/pico-sdk
     cmake --build build-pico
 
-The Pico SDK project has not been compiled in this environment because the SDK is unavailable. Treat this code as an integration starting point until a real SDK build succeeds.
+The Pico SDK backend has not been compiled in this environment because the SDK is unavailable. Treat this code as an integration starting point until a real SDK build succeeds.
 
 ## Backend behavior
 
-- RX samples one digital GPIO input at sample_rate_hz; each sample costs two state-machine cycles. DMA fills a caller-owned finite array of 32-bit words. The oldest sample is bit 31. Sample rate is limited to 1 MHz.
+- Finite RX capture samples one digital GPIO input at `sample_rate_hz`; each sample costs two state-machine cycles. DMA fills a caller-owned array of 32-bit words. The oldest sample is bit 31. Sample rate is limited to 1 MHz.
+- Continuous RX capture alternates two caller-owned buffers using chained DMA channels. Each completed block receives a monotonically increasing sequence number. `pir_pico_rx_stream_take()` returns the oldest pending block, and `pir_pico_rx_stream_overruns()` reports blocks overwritten before consumption. Buffers must be 32-bit aligned, non-overlapping, at least eight words each, and remain allocated until stop.
+- Continuous mode uses a shared DMA IRQ handler and supports one active streaming backend instance. Keep block processing short and on the same core; a returned buffer is only stable until DMA cycles back to it. Overrun counts saturate at `UINT32_MAX`.
 - RX expects a digital demodulating receiver or comparator output. It is not an ADC path and cannot measure 38 kHz carrier cycles from a typical demodulating receiver.
-- pir_samples_to_edges() converts packed samples to mark/space runs and merges equal levels across word boundaries. Set mark_level=false for active-low receiver output.
-- TX consumes up to 256 mark/space runs. PIO generates a nominal carrier and gates it for mark runs. Durations are rounded to carrier periods. Per-run overhead means protocol-grade timing tolerance is not claimed; measure with a logic analyzer.
+- `pir_samples_to_edges()` converts packed samples into mark/space runs and merges equal levels across word boundaries. Set `mark_level=false` for active-low receiver output.
+- TX consumes up to 256 mark/space runs. PIO generates a nominal carrier and gates it on for mark runs. Durations are rounded to carrier periods. Per-run overhead means protocol-grade timing tolerance is not claimed; measure with a logic analyzer.
 - TX is intended to drive a transistor stage, not an IR LED directly from a GPIO. Design current limiting and transistor/base drive for the selected LED and supply.
 - RX and TX use two state machines in the same PIO block. Choose distinct SM indices and pins. The backend does not configure or validate the optical analog frontend.
-- Capture is finite, not continuous ping-pong/ring DMA. There is no overflow accounting or automatic frame trigger yet.
 
 ## API outline
 
-1. pir_pico_backend_init() installs both PIO programs and configures sample/carrier clocks.
-2. pir_pico_rx_start() starts finite capture; poll pir_pico_rx_done(), then convert with pir_samples_to_edges().
-3. pir_pico_tx_start() copies a run array to backend-owned storage and starts DMA/PIO transmission; poll pir_pico_tx_done(). Abort calls leave TX inactive.
+1. `pir_pico_backend_init()` installs both PIO programs and configures sample/carrier clocks.
+2. Use either `pir_pico_rx_start()` for a finite capture or `pir_pico_rx_stream_start()` for continuous two-buffer capture. Poll finite capture with `pir_pico_rx_done()`; drain stream blocks with `pir_pico_rx_stream_take()` and inspect `pir_pico_rx_stream_overruns()`.
+3. Call `pir_pico_rx_stream_stop()` to stop streaming and release both DMA channels.
+4. `pir_pico_tx_start()` copies a run array to backend-owned storage and starts DMA/PIO transmission; poll `pir_pico_tx_done()`. Abort calls leave TX inactive.
 
-Do not start RX and TX simultaneously on one backend instance. Program/SM ownership is dedicated to this backend; there is no general PIO resource manager or deinit routine yet.
+Do not start RX and TX simultaneously on one backend instance. Program/SM ownership is dedicated to this backend; there is no general PIO resource manager or deinit routine yet. The streaming DMA interrupt handler is shared with other DMA IRQ0 users, but this backend supports only one streaming instance at a time.
 
 ## Validation still required
 
-- Build with the supported Pico SDK/toolchain.
-- Check PIO timing and DMA behavior on RP2040 hardware.
+- Build with the supported Pico SDK/toolchain and resolve any SDK-version API differences.
+- Add a hardware stress test that deliberately delays block consumption and verifies overrun counts and sequence ordering.
+- Check PIO timing and DMA behavior on RP2040 hardware; verify interrupt rearming at the selected sample rate and buffer size.
+- Add frame-trigger and inter-frame timeout detection on top of the continuous sample stream.
 - Measure mark/space timing and carrier frequency with a logic analyzer or photodiode.
 - Verify receiver polarity and propagation delay.
-- Add continuous ping-pong capture, overrun reporting, frame trigger/timeout logic, and bounded queues.
-- Integrate with pir_decode(), Game Boy session coordination, physical ACK/NAK/status waveforms, and TinyUSB dual-CDC.
+- Integrate with `pir_decode()`, Game Boy session coordination, physical ACK/NAK/status waveforms, and TinyUSB dual-CDC.
 - Validate transistor drive, current limit, thermal behavior, optical range, and ambient-light performance before prolonged transmission.
