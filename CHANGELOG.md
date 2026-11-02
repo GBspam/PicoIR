@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.15 (in development)
+- Added `pir_decode_samples()` to connect packed GPIO samples to the existing mark/space converter and protocol decoder.
+- Added an end-to-end host regression using a synthetic 1 MHz NEC waveform, plus invalid-input coverage.
+- The test covers software integration only; real receiver delay, PIO sampling, and optical interoperability remain unvalidated.
+
 ## v0.14 (in development)
 - Added an optional Raspberry Pi Pico SDK backend with PIO digital sampling, DMA-backed finite capture, and PIO carrier-modulated envelope transmission through a transistor-driven IR LED output.
 - Added a portable packed-sample-to-mark/space edge converter, including active-low receiver support and run merging across 32-bit DMA words.
