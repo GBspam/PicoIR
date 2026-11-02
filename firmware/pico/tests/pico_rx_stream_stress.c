@@ -1,6 +1,6 @@
 #include "picoir/pico_backend.h"
 #include "hardware/gpio.h"
-#include "pico/platform.h"
+#include "hardware/sync.h"
 #include "pico/stdlib.h"
 
 #include <stdbool.h>

@@ -5,7 +5,7 @@
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 #include "hardware/pio.h"
-#include "pico/platform.h"
+#include "hardware/sync.h"
 #include "pico/time.h"
 #include "ir_rx_sampler.pio.h"
 #include "ir_tx_carrier.pio.h"

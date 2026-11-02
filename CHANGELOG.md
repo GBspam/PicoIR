@@ -2,7 +2,7 @@
 
 ## v0.19
 - Added explicit leases for continuous RX DMA buffers. Consumers release blocks with their sequence token; release reports if DMA overwrote a block while it was being processed, and overrun accounting includes leased buffers.
-- Added an RP2040-only stream stress-test firmware for delayed IRQs, delayed consumers, sequence ordering, overrun accounting, and stop/restart. Pico SDK CI compiles the harness; it does not run on physical hardware.
+- Added an RP2040-only stream stress-test firmware for delayed IRQs, delayed consumers, sequence ordering, overrun accounting, and stop/restart. The harness uses the SDK's hardware sync header for interrupt masking; Pico SDK CI compiles it but does not run it on physical hardware.
 - Updated the Pico backend guide with on-device test instructions and clarified that a successful build does not validate timing or optical interoperability.
 
 
