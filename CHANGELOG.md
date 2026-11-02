@@ -1,7 +1,7 @@
 # Changelog
 
 ## v0.15 (in development)
-- Added `pir_decode_samples()` to connect packed GPIO samples to the existing mark/space converter and protocol decoder.
+- Added `pir_decode_samples()` to connect packed GPIO samples to the existing mark/space converter and protocol decoder; leading idle-space runs are skipped for decoding.
 - Added an end-to-end host regression using a synthetic 1 MHz NEC waveform, plus invalid-input coverage.
 - The test covers software integration only; real receiver delay, PIO sampling, and optical interoperability remain unvalidated.
 
