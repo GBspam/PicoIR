@@ -1,5 +1,9 @@
 # Release notes
 
+## v0.10-dev — Host client hardening and continuous integration
+
+Validates host-client timeout, retry, chunk-size, and receive-size arguments before issuing transfers. Adds a GitHub Actions workflow for the portable C build/tests and Python host tests. CI is not a substitute for RP2040, optical, or end-to-end interoperability testing.
+
 ## v0.9-dev — Game Boy IR packet foundation
 
 Introduces a separate byte-level codec for the Game Boy Color packet format described in Nintendo's programming manual. Includes bounds checks, checksum verification, completion-marker handling, and host regression tests. This is not a complete Game Boy IR stack: pulse timing, connection/echo and status state machines, hardware capture/transmit, and game-specific protocols remain future work. See `docs/gameboy-ir-development.md`.

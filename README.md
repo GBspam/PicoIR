@@ -1,6 +1,10 @@
-# PicoIR 0.9-dev — Consumer IR and Game Boy IR Foundations
+# PicoIR 0.10-dev — Host Client Hardening and CI
 
-PicoIR is an early-stage universal IR communications platform for the original RP2040-based Raspberry Pi Pico. The current repository contains portable C protocol, remote-database, signal-analysis, and CDC1 command-dispatch modules with host-side unit tests. Version 0.8-dev fixed Sony SIRC decoding when the final data space is merged with the long inter-frame gap. The 0.9-dev development track adds the first byte-level Game Boy Color IR packet codec, with host tests.
+PicoIR is an early-stage universal IR communications platform for the original RP2040-based Raspberry Pi Pico. The current repository contains portable C protocol, remote-database, signal-analysis, and CDC1 command-dispatch modules with host-side unit tests. Version 0.8-dev fixed Sony SIRC decoding when the final data space is merged with the long inter-frame gap. Version 0.9-dev added the first byte-level Game Boy Color IR packet codec and host transfer library. The 0.10-dev increment hardens host-side transfer argument validation and adds continuous integration for the C and Python host suites.
+
+## v0.10-dev development increment
+
+The Python transfer client now rejects invalid timeout values, negative/non-integer retry counts, invalid chunk sizes, and invalid receive-size limits before starting a transfer. A GitHub Actions workflow builds the portable C code and runs the C and Python host tests on pushes and pull requests. CI verifies host software only; it does not validate IR hardware, RP2040 PIO/DMA timing, or USB integration.
 
 ## Game Boy IR development
 

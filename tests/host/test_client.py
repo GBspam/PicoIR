@@ -91,6 +91,32 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(GameBoyIRException):
             client.send(b"no")
 
+    def test_rejects_invalid_transfer_limits(self):
+        client = GameBoyIRClient(serial_port=FakeSerial())
+        client.enable()
+        for retries in (-1, 1.5, True):
+            with self.subTest(retries=retries):
+                with self.assertRaises(ValueError):
+                    client.send_packet(encode_packet(b"x"), retries=retries)
+        for chunk_size in (0, 69, 1.5, True):
+            with self.subTest(chunk_size=chunk_size):
+                with self.assertRaises(ValueError):
+                    client.send(b"x", chunk_size=chunk_size)
+        for max_bytes in (-1, 1.5, True):
+            with self.subTest(max_bytes=max_bytes):
+                with self.assertRaises(ValueError):
+                    client.receive(timeout=1, max_bytes=max_bytes)
+
+    def test_rejects_invalid_timeouts(self):
+        for timeout in (0, -1, float("nan"), float("inf")):
+            with self.subTest(timeout=timeout):
+                with self.assertRaises(ValueError):
+                    GameBoyIRClient(serial_port=FakeSerial(), timeout=timeout)
+        client = GameBoyIRClient(serial_port=FakeSerial())
+        client.enable()
+        with self.assertRaises(ValueError):
+            client.receive_packet(timeout=0)
+
 
 if __name__ == "__main__":
     unittest.main()

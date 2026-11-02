@@ -7,8 +7,9 @@ example, Pokémon Mystery Gift); those payloads belong above this transport.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 import time
-from typing import BinaryIO, Optional
+from typing import Optional
 
 RAW_DATA_COMMAND = 0x5A
 MAX_PAYLOAD = 255
@@ -105,8 +106,12 @@ class GameBoyIRClient:
             self._owns_serial = True
         else:
             self._owns_serial = False
+        if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+            if self._owns_serial:
+                serial_port.close()
+            raise ValueError("timeout must be a finite number greater than zero")
         self.serial = serial_port
-        self.timeout = timeout
+        self.timeout = float(timeout)
         self._enabled = False
 
     def close(self) -> None:
@@ -179,6 +184,8 @@ class GameBoyIRClient:
     def send_packet(self, packet_bytes: bytes, *, retries: int = 3) -> None:
         """Send one encoded packet, retrying checksum NAKs up to `retries` times."""
         self._require_enabled()
+        if isinstance(retries, bool) or not isinstance(retries, int) or retries < 0:
+            raise ValueError("retries must be a non-negative integer")
         packet = decode_packet(packet_bytes)
         if len(packet_bytes) > DEFAULT_CHUNK_SIZE + PACKET_OVERHEAD:
             raise ValueError("packet is too large for CDC1; use send() to chunk a stream")
@@ -204,8 +211,10 @@ class GameBoyIRClient:
         """
         self._require_enabled()
         data = bytes(data)
-        if not 1 <= chunk_size <= DEFAULT_CHUNK_SIZE:
-            raise ValueError(f"chunk_size must be in 1..{DEFAULT_CHUNK_SIZE}")
+        if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or not 1 <= chunk_size <= DEFAULT_CHUNK_SIZE:
+            raise ValueError(f"chunk_size must be an integer in 1..{DEFAULT_CHUNK_SIZE}")
+        if isinstance(retries, bool) or not isinstance(retries, int) or retries < 0:
+            raise ValueError("retries must be a non-negative integer")
         for offset in range(0, len(data), chunk_size):
             self.send_packet(encode_packet(data[offset:offset + chunk_size]), retries=retries)
         if finish:
@@ -216,6 +225,8 @@ class GameBoyIRClient:
         """Receive and validate one packet from the remote Game Boy device."""
         self._require_enabled()
         seconds = self.timeout if timeout is None else timeout
+        if not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or seconds <= 0:
+            raise ValueError("timeout must be a finite number greater than zero")
         timeout_ms = max(1, min(60000, int(seconds * 1000)))
         response = self._command(f"GB RECEIVE {timeout_ms}", timeout=seconds + 0.25)
         prefix = "GB PACKET "
@@ -233,7 +244,12 @@ class GameBoyIRClient:
                 max_bytes: int = 1_048_576) -> bytes:
         """Receive packets until the zero-length completion marker arrives."""
         self._require_enabled()
-        deadline = time.monotonic() + (self.timeout if timeout is None else timeout)
+        seconds = self.timeout if timeout is None else timeout
+        if not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or seconds <= 0:
+            raise ValueError("timeout must be a finite number greater than zero")
+        if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 0:
+            raise ValueError("max_bytes must be a non-negative integer")
+        deadline = time.monotonic() + seconds
         result = bytearray()
         while True:
             remaining = deadline - time.monotonic()

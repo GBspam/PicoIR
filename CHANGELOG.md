@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10 (in development)
+- Hardened the Python host client by validating finite positive timeouts, non-negative integer retry counts, valid packet chunk sizes, and non-negative integer receive limits.
+- Added automated CI to build and test the portable C modules and run Python host tests on pushes and pull requests.
+- CI remains host-only; no hardware timing or optical interoperability is implied.
+
 ## v0.9 (in development)
 - Started a separate Game Boy Color IR development track instead of treating Game Boy traffic as a consumer-remote protocol.
 - Added a byte-level codec for the documented `0x5A` packet format, including length validation, checksum validation, and zero-length completion markers.
