@@ -113,12 +113,18 @@ static bool encode_rc5(uint32_t addr, uint32_t cmd, bool toggle, pir_waveform_t 
 }
 
 static bool encode_rc6(uint32_t addr, uint32_t cmd, bool toggle, pir_waveform_t *w) {
-    /* RC6 mode 0: leader 6T mark, 2T space; start bit then mode/toggle/address/command. */
-    if (!push(w,true,2666) || !push(w,false,889)) return false;
-    /* RC6 uses Manchester with a 2T toggle bit; represent the standard 16-bit mode-0 frame. */
-    uint32_t bits = (1u<<15) | ((toggle?1u:0u)<<12) | ((addr&0xFFu)<<4) | (cmd&0xFu);
-    for (int i=15;i>=0;i--) if (!manchester_bit(w,(bits>>i)&1u,444)) return false;
-    return push(w,false,30000);
+    /* RC6 mode 0: 6T mark, 2T space, start bit, 3 mode bits, a 2T toggle
+     * bit, then 8 address bits and 8 command bits. T is approximately 444 us. */
+    if (!push(w, true, 2666) || !push(w, false, 889)) return false;
+    if (!manchester_bit(w, true, 444)) return false; /* start bit */
+    for (unsigned i = 0; i < 3; ++i)
+        if (!manchester_bit(w, false, 444)) return false; /* mode 0 */
+    if (!manchester_bit(w, toggle, 889)) return false; /* double-width toggle */
+    for (int i = 7; i >= 0; --i)
+        if (!manchester_bit(w, (addr >> i) & 1u, 444)) return false;
+    for (int i = 7; i >= 0; --i)
+        if (!manchester_bit(w, (cmd >> i) & 1u, 444)) return false;
+    return push(w, false, 30000);
 }
 
 bool pir_encode(pir_protocol_t p, uint32_t address, uint32_t command,
@@ -175,6 +181,50 @@ static bool decode_pulse_distance(const pir_edge_t *e, size_t n, size_t start,
     *data=value; *end=i; return true;
 }
 
+static bool decode_rc5(const pir_edge_t *e, size_t n, size_t start,
+                       pir_decode_result_t *out) {
+    enum { RC5_HALF_US = 889, RC5_HALF_CELLS = 28 };
+    bool cells[RC5_HALF_CELLS];
+    size_t count = 0;
+
+    for (size_t i = start; i < n && count < RC5_HALF_CELLS; ++i) {
+        uint32_t duration = e[i].duration_us;
+        unsigned repeats;
+        /* The encoder's long trailing space is merged with the final space run. */
+        if (duration >= 30000u &&
+            (near_us(duration, 30000u + RC5_HALF_US, 5u) ||
+             near_us(duration, 30000u + RC5_HALF_US * 2u, 5u)))
+            duration -= 30000u;
+        if (near_us(duration, RC5_HALF_US, TOLERANCE_PCT)) repeats = 1;
+        else if (near_us(duration, RC5_HALF_US * 2u, TOLERANCE_PCT)) repeats = 2;
+        else break; /* usually the trailing inter-frame space */
+        while (repeats-- && count < RC5_HALF_CELLS)
+            cells[count++] = e[i].mark;
+    }
+    if (count != RC5_HALF_CELLS) return false;
+
+    uint16_t frame = 0;
+    for (unsigned bit = 0; bit < 14; ++bit) {
+        bool first = cells[bit * 2u];
+        bool second = cells[bit * 2u + 1u];
+        if (first == second) return false; /* invalid Manchester pair */
+        bool value = first && !second;
+        frame = (uint16_t)((frame << 1) | (value ? 1u : 0u));
+    }
+    if (!(frame & (1u << 13))) return false; /* RC5 start bit */
+
+    uint8_t field = (uint8_t)((frame >> 12) & 1u);
+    out->protocol = PIR_PROTO_RC5;
+    out->toggle = ((frame >> 11) & 1u) != 0;
+    out->address = (frame >> 6) & 0x1Fu;
+    out->command = frame & 0x3Fu;
+    if (!field) out->command |= 0x40u; /* extended RC5 command range */
+    out->raw_data = frame;
+    out->bit_count = 14;
+    out->confidence = 850;
+    return true;
+}
+
 static bool decode_sony(const pir_edge_t *e,size_t n,size_t start,unsigned bits,uint64_t *data,size_t *end) {
     if (!mark_space(e,n,start,true,2400) || !mark_space(e,n,start+1,false,600)) return false;
     uint64_t v=0; size_t i=start+2;
@@ -225,6 +275,7 @@ bool pir_decode(const pir_edge_t *e, size_t n, pir_decode_result_t *out) {
             out->protocol=PIR_PROTO_PANASONIC; out->address=(uint32_t)(d&0xFFFFu);
             out->command=(uint32_t)((d>>16)&0xFFu); out->raw_data=d; out->bit_count=32; out->confidence=750; return true;
         }
+        if (decode_rc5(e, n, s, out)) return true;
     }
     return false;
 }

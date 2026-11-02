@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6 (in development)
+- Added RC5 decoding with Manchester run expansion, toggle extraction, and extended-command field handling.
+- Corrected RC6 mode-0 encoding to emit the start bit, mode bits, double-width toggle bit, 8-bit address, and 8-bit command.
+- Added host regression tests for RC5 round-trip decoding and RC6 frame structure.
+- RC6 decoding, hardware waveform timing, and physical interoperability remain unverified.
+
 ## v0.5 — CDC1 command dispatcher
 
 - Added a hardware-independent CDC1 command dispatcher.

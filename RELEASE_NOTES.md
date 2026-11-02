@@ -19,3 +19,8 @@ These are historical documentation checkpoints only. The original v0.2 source ar
 ## Validation status
 
 The portable host test suite passed 3/3 tests in the local development environment. No physical RP2040, optical frontend, PIO/DMA timing, dual-CDC USB, or custom MicroPython validation is claimed.
+
+
+## v0.6 — Manchester protocol improvements (development milestone)
+
+Adds RC5 frame decoding, including address, command, toggle, and extended-command field handling. Corrects RC6 mode-0 encoding to emit the full 8-bit address and 8-bit command with the double-width toggle bit. Host regression tests cover RC5 round-trip behavior and RC6 frame structure. RC6 decoding is still not implemented, and protocol timing/interoperability must be validated against captured hardware waveforms.
