@@ -1,6 +1,7 @@
 #ifndef PICOIR_CONSOLE_H
 #define PICOIR_CONSOLE_H
 #include "picoir/remote_db.h"
+#include "picoir/gameboy_ir.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -16,6 +17,8 @@ typedef struct {
     uint32_t capture_carrier_hz;
     pir_edge_t capture[PIR_CONSOLE_CAPTURE_MAX];
     bool learning;
+    bool gameboy_mode;
+    bool gameboy_connected;
 } pir_console_state_t;
 typedef struct {
     pir_write_fn write;
@@ -24,6 +27,16 @@ typedef struct {
     bool (*transmit)(void *context, const pir_waveform_t *waveform);
     bool (*transmit_raw)(void *context, const pir_edge_t *edges, size_t count, uint32_t carrier_hz);
     void *transmit_context;
+    /* Game Boy callbacks operate on a complete byte-level packet. The backend
+     * owns pulse timing, connector echo, status response, and hardware timeouts.
+     * Return false when no valid receiver status/packet was obtained. */
+    bool (*gameboy_transmit_packet)(void *context, const uint8_t *packet,
+                                    size_t packet_length, bool connect,
+                                    uint8_t *receiver_status);
+    bool (*gameboy_receive_packet)(void *context, uint8_t *packet,
+                                   size_t packet_capacity, size_t *packet_length,
+                                   uint32_t timeout_ms);
+    void *gameboy_context;
 } pir_console_io_t;
 
 void pir_console_init(pir_console_state_t *state);

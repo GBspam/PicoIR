@@ -1,5 +1,9 @@
 # Release notes
 
+## v0.9-dev — Game Boy IR packet foundation
+
+Introduces a separate byte-level codec for the Game Boy Color packet format described in Nintendo's programming manual. Includes bounds checks, checksum verification, completion-marker handling, and host regression tests. This is not a complete Game Boy IR stack: pulse timing, connection/echo and status state machines, hardware capture/transmit, and game-specific protocols remain future work. See `docs/gameboy-ir-development.md`.
+
 ## v0.8-dev — Sony SIRC gap handling
 
 Fixes decoding of Sony SIRC12, SIRC15, and SIRC20 frames when the final bit's space is merged with the inter-frame gap in the edge representation. Adds host encode/decode round-trip tests for all three frame sizes. This validates the software representation and decoder path only; physical captures and device interoperability remain untested.
@@ -30,4 +34,4 @@ These are documentation checkpoints, not complete firmware releases. The origina
 
 ## Validation status
 
-The portable host test suite currently contains three suites covering protocol logic, remote database/signal analysis, and console dispatch. The latest recorded run passed 3/3 suites, including under AddressSanitizer and UndefinedBehaviorSanitizer. No physical RP2040, optical frontend, PIO/DMA timing, dual-CDC USB, or custom MicroPython validation is claimed.
+The portable C host test suite contains four suites covering consumer protocol logic, Game Boy packet logic, remote database/signal analysis, and console dispatch. The Python host suite covers the transfer codec and client using a fake serial endpoint. The v0.9-dev source snapshot passes 4/4 C suites and 6/6 Python host tests (run with `PYTHONPATH=host`). No physical RP2040, optical frontend, PIO/DMA timing, dual-CDC USB, or custom MicroPython validation is claimed.

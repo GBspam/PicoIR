@@ -50,7 +50,6 @@ int main(void) {
     assert(w.count > 20);
     assert(w.edges[0].mark && w.edges[0].duration_us == 2666);
     assert(!w.edges[1].mark && w.edges[1].duration_us == 889);
-
     assert(pir_decode(w.edges, w.count, &d));
     assert(d.protocol == PIR_PROTO_RC6);
     assert(d.address == 0xA5 && d.command == 0xC3 && d.toggle);

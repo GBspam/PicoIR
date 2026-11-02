@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9 (in development)
+- Started a separate Game Boy Color IR development track instead of treating Game Boy traffic as a consumer-remote protocol.
+- Added a byte-level codec for the documented `0x5A` packet format, including length validation, checksum validation, and zero-length completion markers.
+- Added a Python host library for byte-stream send/receive, packet validation, chunking, checksum-NAK retries, and a file-transfer CLI.
+- Added CDC1 `GB MODE`, `GB SEND`, and `GB RECEIVE` command contracts with injectable hardware callbacks.
+- Added C console tests and hardware-independent Python tests for packet and transfer behavior.
+- Documented the architecture boundary between optical timing, generic packet framing, and game-specific profiles. No physical IR interoperability is claimed.
+
 ## v0.8 (in development)
 - Fixed Sony SIRC12/SIRC15/SIRC20 decoding when the final data space is merged with the long inter-frame gap.
 - Added host round-trip regression tests for all three Sony SIRC frame lengths.

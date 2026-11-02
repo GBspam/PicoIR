@@ -1,16 +1,9 @@
-# Publishing the complete local Git history
+# GitHub publishing notes
 
-The current GitHub `main` branch contains the PicoIR 0.5 source snapshot and project documentation. This was added as a source-sync commit after the documentation commits. It does not recreate the original local commit ancestry or publish the local version tags.
+Repository: https://github.com/GBspam/PicoIR
 
-The prepared local history bundle preserves the original reconstructed local history and tags. To publish that full history, first ensure you have a clone of the target repository and then reconcile the existing GitHub documentation/source-sync commits with the local history before pushing; do not force-push over the GitHub branch without reviewing the histories.
+The repository already exists and the `main` branch contains the v0.8-dev checkpoint. The v0.9-dev source is being published as a follow-on commit to that branch. This reconstructed history is intentionally committed onto the existing remote history rather than force-pushing the local recovery bundle, whose historical commit IDs differ from the remote repository.
 
-The local bundle can be inspected with:
+This commit publishes the v0.9-dev source, host library, tests, README, changelog, and release notes. It does not create a version tag or a GitHub Release page; those are separate actions and should only be created after reviewing the published tree.
 
-```sh
-git clone /path/to/PicoIR-history.bundle PicoIR-history
-cd PicoIR-history
-git log --oneline --decorate --all
-git tag --list
-```
-
-Tags `v0.1` and `v0.2` are archival design/recovery checkpoints, not complete firmware releases. Tags `v0.3`–`v0.5` represent source snapshots. GitHub Release pages are separate from Git tags.
+The v0.1 and v0.2 entries are documentation/recovery checkpoints because original source archives for those versions were not present in the recovered materials. Hardware support is not claimed: PIO/DMA timing, dual-CDC TinyUSB integration, physical optical circuitry, and end-to-end Game Boy IR interoperability remain unvalidated.
