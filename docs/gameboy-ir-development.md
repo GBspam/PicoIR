@@ -11,6 +11,9 @@ PicoIR's Game Boy work is a separate protocol family. Do not assume that a signa
 
 ## Current code
 
+`include/picoir/ir_timing.h` / `src/ir_timing.c` provide a generic allocation-free duration classifier. A caller supplies inclusive microsecond windows keyed by normalized active/inactive level and a caller-defined event code. Validation rejects zero or reversed bounds and any overlapping windows at the same level. Unmatched durations are reported as `NO_MATCH`; the classifier has no built-in protocol timings and is not itself a Game Boy decoder. Keep receiver polarity normalization in the capture backend and record it with every capture fixture.
+
+
 `include/picoir/gameboy_ir.h` and `src/gameboy_ir.c` implement a portable byte-level codec for the documented `0x5A` packet shape. It checks packet size, command, payload length, and the 16-bit sum of the command, length, and payload. The checksum is serialized high byte first. A zero-length packet is reported as a completion marker.
 
 The packet codec is paired with `include/picoir/gameboy_link.h` / `src/gameboy_link.c`, an allocation-free event-driven session coordinator. It models IDLE → WAIT_ECHO → READY → RECEIVING, valid-packet ACK decisions, malformed/checksum-failed packet NAK decisions, zero-length completion, and timeout aborts. Rejected packets leave the receive session active so a backend can continue or apply its own retry policy. Counters record accepted packets, accepted payload bytes, and rejected packets.
@@ -20,7 +23,7 @@ The packet codec is paired with `include/picoir/gameboy_link.h` / `src/gameboy_l
 ## Contribution priorities
 
 1. Add a capture corpus with provenance: console/model, game and region, operation performed, hardware/receiver, raw edge timings, and whether the capture is known-good. Preserve original captures alongside normalized fixtures.
-2. Implement pulse/event classification as a separate allocation-free layer, using timing profiles and boundary tests. Include normal-speed/double-speed variation where relevant; the manual warns that the two ends must use matching speed for its packet protocol.
+2. Build the sourced timing-profile layer on top of the generic classifier: transcribe documented pulse/space windows or add provenance-backed capture fixtures, then add named event codes and boundary/noise tests. Include normal-speed/double-speed variation where relevant; the manual warns that the two ends must use matching speed for its packet protocol.
 3. Extend the event coordinator only alongside a cited timing/status specification or capture corpus; implement connection echo detection, section synchronization, physical status signaling, and bounded retry policy in the timing/backend layer.
 4. Add named game profiles only when backed by a capture, disassembly, or a cited technical reference. Keep protocol-specific assumptions in each profile.
 5. Test malformed, truncated, noisy, overlong, and timing-boundary cases before connecting the code to hardware.

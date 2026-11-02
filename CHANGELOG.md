@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.13 (in development)
+- Added a generic allocation-free IR duration classifier driven by explicit caller-supplied active/inactive timing windows.
+- Added profile validation for invalid bounds and overlapping windows, plus tests for inclusive boundaries, no-match durations, and invalid arguments.
+- Intentionally added no built-in Game Boy timing constants; a protocol profile requires sourced timing evidence or a documented capture fixture.
+
 ## v0.12 (in development)
 - Added a byte-oriented Game Boy link adapter that validates raw packet bytes and applies the result to the session state machine.
 - Valid packets can be returned to the caller while ACK/completion decisions are made; malformed packets are NAKed and counted.

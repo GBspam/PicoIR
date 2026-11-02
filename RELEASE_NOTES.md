@@ -1,5 +1,9 @@
 # Release notes
 
+## v0.13-dev — Explicit IR timing profiles
+
+Adds a portable duration-to-event classifier that consumes explicit timing windows supplied by the caller. It validates profiles, treats window endpoints as inclusive, and reports unmatched durations without guessing. Boundary and malformed-profile tests are included. No Game Boy timing constants or hardware decoder are claimed; real protocol profiles still require sourced timing diagrams or capture fixtures.
+
 ## v0.12-dev — Game Boy packet-to-link integration
 
 Adds `pir_gbc_link_on_packet_bytes()`, which validates a raw packet with the existing Game Boy packet codec and routes the result into the link-session coordinator. Valid packets produce ACK or completion decisions; malformed packets produce NAK decisions and update rejection counters. Host tests cover the integration path. This remains a software seam only; no physical timing or hardware interoperability is claimed.

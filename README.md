@@ -1,6 +1,10 @@
-# PicoIR 0.12-dev — Game Boy Packet-to-Link Integration
+# PicoIR 0.13-dev — Explicit IR Timing Profiles
 
 PicoIR is an early-stage universal IR communications platform for the original RP2040-based Raspberry Pi Pico. The current repository contains portable C protocol, remote-database, signal-analysis, and CDC1 command-dispatch modules with host-side unit tests. Version 0.8-dev fixed Sony SIRC decoding when the final data space is merged with the long inter-frame gap. Version 0.9-dev added the first byte-level Game Boy Color IR packet codec and host transfer library. The 0.10-dev increment hardened host-side transfer argument validation and added continuous integration for the C and Python host suites. The 0.11-dev increment added a hardware-independent Game Boy link-session state machine; v0.12-dev adds a byte-oriented adapter that validates complete packets and feeds decisions into that state machine.
+
+## v0.13-dev development increment
+
+Added `picoir/ir_timing.h` and `src/ir_timing.c`, a portable allocation-free duration classifier that maps a measured active/inactive run to a caller-defined event code using explicit inclusive microsecond windows. Profile validation rejects invalid bounds and overlapping windows at the same level; unmatched durations remain unclassified rather than being guessed. No default Game Boy timing values are included because they must be grounded in a cited timing diagram or capture corpus. This is a generic software layer, not a validated Game Boy waveform decoder.
 
 ## v0.12-dev development increment
 
@@ -16,7 +20,7 @@ The Python transfer client now rejects invalid timeout values, negative/non-inte
 
 ## Game Boy IR development
 
-PicoIR now has a separate, portable byte-level codec for the Game Boy Color packet format documented in Nintendo's programming manual (`0x5A` raw-data command, up to 255 payload bytes, 16-bit checksum, and zero-length completion marker). This is a foundation for development, not a complete Game Boy IR implementation. **There is no single IR protocol shared by every Game Boy Color game**; game-specific pulse timings, handshakes, and payload formats must be implemented as distinct profiles. The host transfer library and CDC1 command contract are now present. The optical timing decoder, physical connection/echo pulse implementation, receiver status waveform backend, RP2040 PIO/DMA integration, and game-specific profiles are not implemented yet. The link-session state machine and byte-oriented adapter coordinate decoded packets but do not implement their physical timing.
+PicoIR now has a separate, portable byte-level codec for the Game Boy Color packet format documented in Nintendo's programming manual (`0x5A` raw-data command, up to 255 payload bytes, 16-bit checksum, and zero-length completion marker). This is a foundation for development, not a complete Game Boy IR implementation. **There is no single IR protocol shared by every Game Boy Color game**; game-specific pulse timings, handshakes, and payload formats must be implemented as distinct profiles. The host transfer library and CDC1 command contract are now present. The generic timing-window classifier now exists, but no sourced Game Boy timing profile, physical connection/echo pulse implementation, receiver status waveform backend, RP2040 PIO/DMA integration, or game-specific profile is implemented yet. The link-session state machine and byte-oriented adapter coordinate decoded packets but do not implement their physical timing.
 
 See [`docs/gameboy-ir-development.md`](docs/gameboy-ir-development.md) for architecture, contribution priorities, capture-fixture guidance, and technical references. The Python host package is in [`host/`](host/); it exposes `GameBoyIRClient.send(bytes)` and `.receive()` and includes a file-transfer CLI. Install with `python -m pip install './host[serial]'`.
 
@@ -43,9 +47,9 @@ All I/O is injected through callbacks. The transmit callback must copy or consum
 
 ## Current validation status
 
-- Host tests exercise consumer-IR protocol encoding/decoding, Game Boy packet byte encoding/decoding, remote database/signal analysis, and console dispatch.
+- Host tests exercise consumer-IR protocol encoding/decoding, generic IR timing-window classification, Game Boy packet byte encoding/decoding, remote database/signal analysis, and console dispatch.
 - The Sony SIRC12/SIRC15/SIRC20 encoders now round-trip through the host decoder, including the merged final-space/inter-frame-gap edge.
-- Game Boy packet tests cover payload sizes, completion packets, malformed lengths, unsupported commands, and checksum corruption. Link-state tests cover legal/illegal transitions, connection echo, ACK/NAK decisions, rejected-packet recovery, completion, counters, timeouts, and the packet-bytes-to-session adapter. Console tests cover the new `GB MODE`, `GB SEND`, and `GB RECEIVE` command contract; Python tests cover packet codec, chunking, retries, and completion handling. These do not validate optical timing or physical interoperability.
+- IR timing tests cover inclusive boundaries, adjacent windows, no-match durations, overlapping/invalid profiles, and invalid arguments. Game Boy packet tests cover payload sizes, completion packets, malformed lengths, unsupported commands, and checksum corruption. Link-state tests cover legal/illegal transitions, connection echo, ACK/NAK decisions, rejected-packet recovery, completion, counters, timeouts, and the packet-bytes-to-session adapter. Console tests cover the new `GB MODE`, `GB SEND`, and `GB RECEIVE` command contract; Python tests cover packet codec, chunking, retries, and completion handling. These do not validate optical timing or physical interoperability.
 - The Game Boy CDC1 command backend is an interface boundary only: its callbacks must be wired to the timing/handshake implementation. This is not yet a complete RP2040 firmware image. TinyUSB dual-CDC, PIO/DMA capture/transmit, the physical optical frontend, custom MicroPython integration, and persistent storage are not implemented or hardware-validated.
 
 ## Build
