@@ -2,7 +2,7 @@
 
 ## v0.15-dev — Sampled capture decode integration
 
-Adds `pir_decode_samples()`, which converts packed sampled GPIO data into mark/space edges and invokes the existing protocol decoder. The host regression synthesizes a NEC waveform at 1 MHz and verifies protocol/address/command recovery through the full conversion path. Local CTest passes 7/7 suites. This does not validate PIO hardware, analog receiver delays, sample-clock accuracy, or physical interoperability.
+Adds `pir_decode_samples()`, which converts packed sampled GPIO data into mark/space edges and invokes the existing protocol decoder, skipping leading idle-space runs. The host regression synthesizes a NEC waveform at 1 MHz with leading idle samples and verifies protocol/address/command recovery through the full conversion path. Local CTest passes 7/7 suites. This does not validate PIO hardware, analog receiver delays, sample-clock accuracy, or physical interoperability.
 
 ## v0.14-dev — RP2040 PIO/DMA backend foundation
 
