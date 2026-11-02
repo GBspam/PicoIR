@@ -4,7 +4,7 @@ PicoIR's Game Boy work is a separate protocol family. Do not assume that a signa
 
 ## Protocol layers
 
-1. **Optical/raw capture** — preserve edge durations and polarity without lossy normalization. The planned RP2040 PIO/DMA capture path is not implemented yet.
+1. **Optical/raw capture** — preserve edge durations and polarity without lossy normalization. A finite RP2040 PIO/DMA sampled-capture backend now exists under `firmware/pico/`, with a portable packed-sample-to-edge converter. It is not continuous ping-pong capture, has not been built with the Pico SDK in this environment, and has not been hardware-tested.
 2. **Pulse/event decoding** — classify short IR pulses, intervals, synchronization pulses, and connection/echo handshakes. Timing profiles must be explicit and testable against captures; do not silently classify uncertain timings as valid bits.
 3. **Link packet format** — the Nintendo Game Boy Programming Manual describes a packet exchange with a connection pulse, synchronous pulses around sections, a two-byte header, up to 255 data bytes, a two-byte checksum, and receiver status. The command documented for raw data is `0x5A`; a zero length marks completion. Data bits are sent MSB-first.
 4. **Game profiles** — game-specific implementations belong in independent profiles with their own handshake, timing, payload rules, and evidence. Examples include Pokémon Gold/Silver/Crystal Mystery Gift and Pokémon TCG Card Pop. These must not be presented as interchangeable with the manual's generic packet format.
@@ -22,11 +22,12 @@ The packet codec is paired with `include/picoir/gameboy_link.h` / `src/gameboy_l
 
 ## Contribution priorities
 
-1. Add a capture corpus with provenance: console/model, game and region, operation performed, hardware/receiver, raw edge timings, and whether the capture is known-good. Preserve original captures alongside normalized fixtures.
-2. Build the sourced timing-profile layer on top of the generic classifier: transcribe documented pulse/space windows or add provenance-backed capture fixtures, then add named event codes and boundary/noise tests. Include normal-speed/double-speed variation where relevant; the manual warns that the two ends must use matching speed for its packet protocol.
-3. Extend the event coordinator only alongside a cited timing/status specification or capture corpus; implement connection echo detection, section synchronization, physical status signaling, and bounded retry policy in the timing/backend layer.
-4. Add named game profiles only when backed by a capture, disassembly, or a cited technical reference. Keep protocol-specific assumptions in each profile.
-5. Test malformed, truncated, noisy, overlong, and timing-boundary cases before connecting the code to hardware.
+1. Build and bench-validate `firmware/pico/` with the Pico SDK. Measure sample clock, TX carrier, mark/space timing, receiver polarity, DMA completion, and final-segment behavior using a logic analyzer before treating this backend as interoperable. Add continuous ping-pong capture and overrun reporting.
+2. Add a capture corpus with provenance: console/model, game and region, operation performed, hardware/receiver, raw edge timings, and whether the capture is known-good. Preserve original captures alongside normalized fixtures.
+3. Build the sourced timing-profile layer on top of the generic classifier: transcribe documented pulse/space windows or add provenance-backed capture fixtures, then add named event codes and boundary/noise tests. Include normal-speed/double-speed variation where relevant; the manual warns that the two ends must use matching speed for its packet protocol.
+4. Extend the event coordinator only alongside a cited timing/status specification or capture corpus; implement connection echo detection, section synchronization, physical status signaling, and bounded retry policy in the timing/backend layer.
+5. Add named game profiles only when backed by a capture, disassembly, or a cited technical reference. Keep protocol-specific assumptions in each profile.
+6. Test malformed, truncated, noisy, overlong, and timing-boundary cases before connecting the code to hardware.
 
 ## Suggested capture fixture format
 

@@ -1,5 +1,9 @@
 # Release notes
 
+## v0.14-dev — RP2040 PIO/DMA backend foundation
+
+Adds an optional Pico SDK backend under `firmware/pico/`: PIO samples a digital demodulating-receiver output into 32-bit words through DMA, and a second PIO state machine emits carrier-modulated IR envelope runs for an external transistor LED driver. The portable `pir_samples_to_edges()` helper converts captured samples into mark/space durations and merges runs across DMA word boundaries. Seven C test suites and eight Python host tests pass locally. The Pico SDK backend itself could not be compiled here because the SDK is not installed, and no physical RP2040 or optical hardware test was performed. This is a finite-capture backend foundation, not continuous capture or complete Game Boy hardware support.
+
 ## v0.13-dev — Explicit IR timing profiles
 
 Adds a portable duration-to-event classifier that consumes explicit timing windows supplied by the caller. It validates profiles, treats window endpoints as inclusive, and reports unmatched durations without guessing. Boundary and malformed-profile tests are included. No Game Boy timing constants or hardware decoder are claimed; real protocol profiles still require sourced timing diagrams or capture fixtures.
@@ -50,4 +54,4 @@ The original v0.2 source archive was not recovered; v0.1 captures the initial pr
 
 ## Validation status
 
-The portable C host test suite contains five suites covering consumer protocol logic, Game Boy packet logic, Game Boy link state, remote database/signal analysis, and console dispatch. The Python host suite covers the transfer codec and client using a fake serial endpoint. The latest local run passed 5/5 C suites and all 8 Python host tests. No physical RP2040, optical frontend, PIO/DMA timing, dual-CDC USB, or custom MicroPython validation is claimed.
+The portable C host test suite contains seven suites covering consumer protocol logic, Game Boy packet logic and link coordination, remote database/signal analysis, console dispatch, timing classification, and sampled-waveform edge conversion. The Python host suite covers the transfer codec and client using a fake serial endpoint. The latest local run passed 7/7 C suites and all 8 Python host tests. No physical RP2040, optical frontend, PIO/DMA timing, dual-CDC USB, or custom MicroPython validation is claimed.

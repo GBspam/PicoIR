@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.16)
+if (NOT DEFINED PICO_SDK_PATH AND DEFINED ENV{PICO_SDK_PATH})
+    set(PICO_SDK_PATH $ENV{PICO_SDK_PATH})
+endif()
+if (NOT PICO_SDK_PATH)
+    message(FATAL_ERROR "Set PICO_SDK_PATH to a Raspberry Pi Pico SDK checkout")
+endif()
+include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
+project(picoir_pico_backend C CXX ASM)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+pico_sdk_init()
+add_library(picoir_pico_backend STATIC src/picoir_pico.c)
+target_include_directories(picoir_pico_backend PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}/include
+    ${CMAKE_CURRENT_LIST_DIR}/../../include
+)
+target_link_libraries(picoir_pico_backend PUBLIC pico_stdlib hardware_clocks hardware_dma hardware_pio)
+pico_generate_pio_header(picoir_pico_backend ${CMAKE_CURRENT_LIST_DIR}/pio/ir_rx_sampler.pio)
+pico_generate_pio_header(picoir_pico_backend ${CMAKE_CURRENT_LIST_DIR}/pio/ir_tx_carrier.pio)

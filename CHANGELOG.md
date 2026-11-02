@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.14 (in development)
+- Added an optional Raspberry Pi Pico SDK backend with PIO digital sampling, DMA-backed finite capture, and PIO carrier-modulated envelope transmission through a transistor-driven IR LED output.
+- Added a portable packed-sample-to-mark/space edge converter, including active-low receiver support and run merging across 32-bit DMA words.
+- Added host regression tests for sample ordering, boundary merging, polarity, duration scaling, and output-capacity errors.
+- The Pico SDK backend is isolated under `firmware/pico/` and was not SDK-compiled or hardware-tested in this environment. Continuous ping-pong capture, physical timing calibration, optical validation, TinyUSB dual-CDC integration, and Game Boy handshake/status signaling remain future work.
+
 ## v0.13 (in development)
 - Added a generic allocation-free IR duration classifier driven by explicit caller-supplied active/inactive timing windows.
 - Added profile validation for invalid bounds and overlapping windows, plus tests for inclusive boundaries, no-match durations, and invalid arguments.

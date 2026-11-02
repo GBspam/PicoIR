@@ -1,0 +1,9 @@
+.program picoir_ir_rx_sampler
+; One digital receiver sample every two state-machine clock cycles.
+; The C backend sets clkdiv = clk_sys / (2 * requested_sample_rate).
+; Autopush packs 32 chronological one-bit samples into each RX FIFO word.
+.wrap_target
+sample:
+    in pins, 1
+    jmp sample
+.wrap
