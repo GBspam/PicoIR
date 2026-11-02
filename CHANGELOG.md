@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.11 (in development)
+- Added an allocation-free Game Boy link-session state machine for connection-echo progression, receive arming, packet acceptance/rejection decisions, completion markers, counters, and timeout/abort transitions.
+- Added host tests for state transitions, invalid call ordering, checksum/framing rejection, recovery after rejected packets, completion, and timeouts.
+- The state machine is an event coordinator only; pulse timing, physical ACK/NAK signaling, PIO/DMA, and hardware interoperability remain unimplemented/unverified.
+
 ## v0.10 (in development)
 - Hardened the Python host client by validating finite positive timeouts, non-negative integer retry counts, valid packet chunk sizes, and non-negative integer receive limits.
 - Added automated CI to build and test the portable C modules and run Python host tests on pushes and pull requests.

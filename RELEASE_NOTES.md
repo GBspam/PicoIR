@@ -1,5 +1,9 @@
 # Release notes
 
+## v0.11-dev — Game Boy link session coordinator
+
+Adds a portable, allocation-free event-driven state machine for connection echo, receive state, packet ACK/NAK decisions, zero-length completion, counters, and timeout aborts. Host tests cover normal and error transitions. This is not the physical pulse/receiver-status implementation: timing, PIO/DMA, optical hardware, and interoperability remain unvalidated.
+
 ## v0.10-dev — Host client hardening and continuous integration
 
 Validates host-client timeout, retry, chunk-size, and receive-size arguments before issuing transfers. Adds a GitHub Actions workflow for the portable C build/tests and Python host tests. CI is not a substitute for RP2040, optical, or end-to-end interoperability testing.
@@ -34,8 +38,8 @@ Initial portable C protocol layer and host tests. The implementation provides in
 
 ## v0.2 and v0.1 — Historical checkpoints
 
-These are documentation checkpoints, not complete firmware releases. The original v0.2 source archive was not recovered; v0.1 captures the initial project specification.
+The original v0.2 source archive was not recovered; v0.1 captures the initial project specification.
 
 ## Validation status
 
-The portable C host test suite contains four suites covering consumer protocol logic, Game Boy packet logic, remote database/signal analysis, and console dispatch. The Python host suite covers the transfer codec and client using a fake serial endpoint. The v0.9-dev source snapshot passes 4/4 C suites and 6/6 Python host tests (run with `PYTHONPATH=host`). No physical RP2040, optical frontend, PIO/DMA timing, dual-CDC USB, or custom MicroPython validation is claimed.
+The portable C host test suite contains five suites covering consumer protocol logic, Game Boy packet logic, Game Boy link state, remote database/signal analysis, and console dispatch. The Python host suite covers the transfer codec and client using a fake serial endpoint. The latest local run passed 5/5 C suites and all 8 Python host tests. No physical RP2040, optical frontend, PIO/DMA timing, dual-CDC USB, or custom MicroPython validation is claimed.

@@ -13,13 +13,15 @@ PicoIR's Game Boy work is a separate protocol family. Do not assume that a signa
 
 `include/picoir/gameboy_ir.h` and `src/gameboy_ir.c` implement a portable byte-level codec for the documented `0x5A` packet shape. It checks packet size, command, payload length, and the 16-bit sum of the command, length, and payload. The checksum is serialized high byte first. A zero-length packet is reported as a completion marker.
 
-This is deliberately only the packet layer. It does **not** yet implement optical timing, pulse classification, connection/echo behavior, acknowledgements/status responses, a PIO/DMA backend, or any game-specific payload. The codec's host tests prove byte-level behavior only, not interoperability with a physical Game Boy Color.
+The packet codec is paired with `include/picoir/gameboy_link.h` / `src/gameboy_link.c`, an allocation-free event-driven session coordinator. It models IDLE → WAIT_ECHO → READY → RECEIVING, valid-packet ACK decisions, malformed/checksum-failed packet NAK decisions, zero-length completion, and timeout aborts. Rejected packets leave the receive session active so a backend can continue or apply its own retry policy. Counters record accepted packets, accepted payload bytes, and rejected packets.
+
+The coordinator does not emit or time optical pulses, decide whether a captured waveform is a valid echo, generate a physical ACK/NAK/status waveform, or schedule retries. Those are responsibilities of a future timing/receiver backend. Host tests prove only deterministic state transitions and byte-level behavior, not interoperability with a physical Game Boy Color.
 
 ## Contribution priorities
 
 1. Add a capture corpus with provenance: console/model, game and region, operation performed, hardware/receiver, raw edge timings, and whether the capture is known-good. Preserve original captures alongside normalized fixtures.
 2. Implement pulse/event classification as a separate allocation-free layer, using timing profiles and boundary tests. Include normal-speed/double-speed variation where relevant; the manual warns that the two ends must use matching speed for its packet protocol.
-3. Implement the documented packet exchange state machine, including connection echo, section synchronization, checksum status, retries, and completion handling.
+3. Extend the event coordinator only alongside a cited timing/status specification or capture corpus; implement connection echo detection, section synchronization, physical status signaling, and bounded retry policy in the timing/backend layer.
 4. Add named game profiles only when backed by a capture, disassembly, or a cited technical reference. Keep protocol-specific assumptions in each profile.
 5. Test malformed, truncated, noisy, overlong, and timing-boundary cases before connecting the code to hardware.
 
@@ -45,7 +47,7 @@ The current CDC1 command surface is:
 - `GB SEND <hex-packet>` — send one complete, checksum-valid byte packet; response is `GB STATUS OK`, `GB STATUS CHECKSUM_ERROR`, or `GB ERROR ...`.
 - `GB RECEIVE <timeout_ms>` — receive one complete packet; response is `GB PACKET <hex-packet>` or `GB ERROR TIMEOUT`.
 
-The command line is limited to 160 characters, so this first host API limits packet payloads sent through CDC1 to 68 bytes even though the on-wire packet format permits 255. This is a transport limitation, not a protocol limitation. The command dispatcher validates packet framing/checksums before invoking injected callbacks. The callback contract leaves pulse timing, connector echo, packet transmission, status response, and receiver timing to the hardware backend.
+The command line is limited to 160 characters, so this first host API limits packet payloads sent through CDC1 to 68 bytes even though the on-wire packet format permits 255. This is a transport limitation, not a protocol limitation. The command dispatcher validates packet framing/checksums before invoking injected callbacks. The callback contract leaves pulse timing, connector echo, packet transmission, status response, and receiver timing to the hardware backend. The new `pir_gbc_link_t` state machine is a separate hardware-independent coordinator: callers feed it validated events and execute its returned actions; it does not itself drive the callbacks or hardware.
 
 The Python package lives in `host/picoir_gameboy`:
 
