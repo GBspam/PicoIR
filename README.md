@@ -4,7 +4,7 @@ PicoIR is an early-stage universal IR communications platform for the original R
 
 ## v0.15-dev development increment
 
-Added `pir_decode_samples()`, a portable integration seam that converts packed PIO/DMA GPIO samples into mark/space edges and passes the resulting waveform to the existing protocol decoder. It reports the converted edge count when conversion succeeds, even if no supported protocol matches. A synthetic 1 MHz NEC waveform now exercises the full samples-to-edges-to-decode path in the host suite. This validates software integration only; receiver propagation delay, sampling quantization, actual PIO behavior, and hardware interoperability remain unvalidated.
+Added `pir_decode_samples()`, a portable integration seam that converts packed PIO/DMA GPIO samples into mark/space edges and passes the resulting waveform to the existing protocol decoder. Leading inactive/space runs are skipped when decoding, so a capture can include idle time before the first mark. It reports the converted edge count when conversion succeeds, even if no supported protocol matches. A synthetic 1 MHz NEC waveform with leading idle samples exercises the full samples-to-edges-to-decode path in the host suite. This validates software integration only; receiver propagation delay, sampling quantization, actual PIO behavior, and hardware interoperability remain unvalidated.
 
 ## v0.14-dev development increment
 
