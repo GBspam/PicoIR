@@ -1,5 +1,9 @@
 # Release notes
 
+## v0.12-dev — Game Boy packet-to-link integration
+
+Adds `pir_gbc_link_on_packet_bytes()`, which validates a raw packet with the existing Game Boy packet codec and routes the result into the link-session coordinator. Valid packets produce ACK or completion decisions; malformed packets produce NAK decisions and update rejection counters. Host tests cover the integration path. This remains a software seam only; no physical timing or hardware interoperability is claimed.
+
 ## v0.11-dev — Game Boy link session coordinator
 
 Adds a portable, allocation-free event-driven state machine for connection echo, receive state, packet ACK/NAK decisions, zero-length completion, counters, and timeout aborts. Host tests cover normal and error transitions. This is not the physical pulse/receiver-status implementation: timing, PIO/DMA, optical hardware, and interoperability remain unvalidated.

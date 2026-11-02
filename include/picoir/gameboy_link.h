@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "picoir/gameboy_ir.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +52,13 @@ pir_gbc_link_status_t pir_gbc_link_on_echo(pir_gbc_link_t *link,
 /* Arm receive after connection has been established. */
 pir_gbc_link_status_t pir_gbc_link_begin_receive(pir_gbc_link_t *link,
                                                  pir_gbc_link_action_t *action);
-/* Report one decoded packet. Invalid/checksum-failed packets are NAKed. */
+/* Decode one raw packet and apply its result to the session. A valid decoded
+ * packet is copied to packet_out when non-NULL. Malformed packets are NAKed
+ * and counted as rejected; calls outside RECEIVING return INVALID_STATE. */
+pir_gbc_link_status_t pir_gbc_link_on_packet_bytes(
+    pir_gbc_link_t *link, const uint8_t *bytes, size_t byte_count,
+    pir_gbc_packet_t *packet_out, pir_gbc_link_action_t *action);
+/* Report one already-decoded packet. Invalid/checksum-failed packets are NAKed. */
 pir_gbc_link_status_t pir_gbc_link_on_packet(pir_gbc_link_t *link,
                                              bool framing_valid,
                                              bool checksum_valid,

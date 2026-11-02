@@ -1,4 +1,6 @@
 #include "picoir/gameboy_link.h"
+#include "picoir/gameboy_ir.h"
+#include <string.h>
 #include <assert.h>
 #include <stdio.h>
 
@@ -43,6 +45,29 @@ int main(void) {
     assert(pir_gbc_link_begin_receive(&link, &action) == PIR_GBC_LINK_OK);
     assert(pir_gbc_link_on_timeout(&link, &action) == PIR_GBC_LINK_TIMEOUT);
     assert(link.state == PIR_GBC_LINK_FAILED);
+
+    /* The byte-oriented adapter joins packet validation to session decisions. */
+    pir_gbc_packet_t decoded;
+    uint8_t packet_bytes[PIR_GBC_MAX_PACKET_SIZE];
+    size_t packet_size = 0;
+    const uint8_t payload[] = { 0x12, 0x34, 0x56 };
+    assert(pir_gbc_link_connect(&link, &action) == PIR_GBC_LINK_OK);
+    assert(pir_gbc_link_on_echo(&link, &action) == PIR_GBC_LINK_OK);
+    assert(pir_gbc_link_begin_receive(&link, &action) == PIR_GBC_LINK_OK);
+    assert(pir_gbc_packet_encode(payload, sizeof(payload), packet_bytes,
+                                 sizeof(packet_bytes), &packet_size) == PIR_GBC_PACKET_OK);
+    assert(pir_gbc_link_on_packet_bytes(&link, packet_bytes, packet_size,
+                                        &decoded, &action) == PIR_GBC_LINK_OK);
+    assert(action == PIR_GBC_LINK_ACTION_ACK_PACKET);
+    assert(decoded.length == sizeof(payload));
+    assert(memcmp(decoded.data, payload, sizeof(payload)) == 0);
+    packet_bytes[packet_size - 1u] ^= 0x01u;
+    assert(pir_gbc_link_on_packet_bytes(&link, packet_bytes, packet_size,
+                                        &decoded, &action) == PIR_GBC_LINK_BAD_PACKET);
+    assert(action == PIR_GBC_LINK_ACTION_NAK_PACKET);
+    assert(link.packets_rejected == 1);
+    assert(pir_gbc_link_on_packet_bytes(&link, packet_bytes, packet_size,
+                                        NULL, NULL) == PIR_GBC_LINK_INVALID_STATE);
 
     assert(pir_gbc_link_on_echo(NULL, &action) == PIR_GBC_LINK_INVALID_STATE);
     assert(pir_gbc_link_on_echo(&link, NULL) == PIR_GBC_LINK_INVALID_STATE);

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.12 (in development)
+- Added a byte-oriented Game Boy link adapter that validates raw packet bytes and applies the result to the session state machine.
+- Valid packets can be returned to the caller while ACK/completion decisions are made; malformed packets are NAKed and counted.
+- Added host regression coverage for packet-to-session integration and invalid call ordering. Optical timing and physical signaling remain unimplemented.
+
 ## v0.11 (in development)
 - Added an allocation-free Game Boy link-session state machine for connection-echo progression, receive arming, packet acceptance/rejection decisions, completion markers, counters, and timeout/abort transitions.
 - Added host tests for state transitions, invalid call ordering, checksum/framing rejection, recovery after rejected packets, completion, and timeouts.

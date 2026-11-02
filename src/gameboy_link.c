@@ -46,6 +46,24 @@ pir_gbc_link_status_t pir_gbc_link_begin_receive(pir_gbc_link_t *link,
     return PIR_GBC_LINK_OK;
 }
 
+pir_gbc_link_status_t pir_gbc_link_on_packet_bytes(
+    pir_gbc_link_t *link, const uint8_t *bytes, size_t byte_count,
+    pir_gbc_packet_t *packet_out, pir_gbc_link_action_t *action) {
+    pir_gbc_link_status_t status = check_args(link, action);
+    if (status != PIR_GBC_LINK_OK) return status;
+    if (link->state != PIR_GBC_LINK_RECEIVING)
+        return PIR_GBC_LINK_INVALID_STATE;
+
+    pir_gbc_packet_t decoded;
+    pir_gbc_packet_status_t packet_status =
+        pir_gbc_packet_decode(bytes, byte_count, &decoded);
+    if (packet_status != PIR_GBC_PACKET_OK)
+        return pir_gbc_link_on_packet(link, false, false, 0, action);
+
+    if (packet_out != NULL) *packet_out = decoded;
+    return pir_gbc_link_on_packet(link, true, true, decoded.length, action);
+}
+
 pir_gbc_link_status_t pir_gbc_link_on_packet(pir_gbc_link_t *link,
                                              bool framing_valid,
                                              bool checksum_valid,

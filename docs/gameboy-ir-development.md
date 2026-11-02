@@ -15,7 +15,7 @@ PicoIR's Game Boy work is a separate protocol family. Do not assume that a signa
 
 The packet codec is paired with `include/picoir/gameboy_link.h` / `src/gameboy_link.c`, an allocation-free event-driven session coordinator. It models IDLE → WAIT_ECHO → READY → RECEIVING, valid-packet ACK decisions, malformed/checksum-failed packet NAK decisions, zero-length completion, and timeout aborts. Rejected packets leave the receive session active so a backend can continue or apply its own retry policy. Counters record accepted packets, accepted payload bytes, and rejected packets.
 
-The coordinator does not emit or time optical pulses, decide whether a captured waveform is a valid echo, generate a physical ACK/NAK/status waveform, or schedule retries. Those are responsibilities of a future timing/receiver backend. Host tests prove only deterministic state transitions and byte-level behavior, not interoperability with a physical Game Boy Color.
+`pir_gbc_link_on_packet_bytes()` is the integration seam for a future timing backend: it accepts the completed packet byte buffer, validates command/length/checksum with the packet codec, returns a decoded packet when requested, and maps valid packets to ACK/completion actions or invalid packets to NAK actions. It refuses calls outside `RECEIVING` without changing counters. The coordinator still does not emit or time optical pulses, decide whether a captured waveform is a valid echo, generate a physical ACK/NAK/status waveform, or schedule retries. Host tests prove deterministic software behavior only, not interoperability with a physical Game Boy Color.
 
 ## Contribution priorities
 
