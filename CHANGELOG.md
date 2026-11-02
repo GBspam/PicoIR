@@ -5,7 +5,7 @@
 - Hardened host response deadlines for injected serial objects with `timeout=None`, rejected boolean timeout values, and added timeout regressions.
 - Included the console implementation in the public `picoir` library target so consumer tests link the library rather than compiling `src/console.c` separately.
 - Made Pico backend initialization reject claimed state machines, clean up partial setup, claim its state machines, and added an explicit deinitialization API to release PIO/DMA resources.
-- Documented CSV metadata-only versus JSON raw-edge export fidelity and added a Pico SDK build workflow. DMA stress and measured waveform validation still require physical hardware; no physical interoperability is claimed.
+- Documented CSV metadata-only versus JSON raw-edge export fidelity and added a Pico SDK build workflow, which passes against Pico SDK 2.1.1. DMA stress and measured waveform validation still require physical hardware; no physical interoperability is claimed.
 
 ## v0.16
 - Added continuous RP2040 RX capture using two chained DMA channels and caller-owned ping-pong buffers.

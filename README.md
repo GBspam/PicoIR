@@ -12,7 +12,7 @@ PicoIR is a universal IR communications platform for the original RP2040-based R
 
 ## Hardware backend status
 
-The Pico SDK backend is a reusable library, not a complete firmware image. It has not been compiled against the Pico SDK in this environment and has not been tested on RP2040 hardware. Continuous capture requires timely draining of its two caller-owned buffers; the overrun counter reports blocks overwritten before consumption. The portable frame tracker reports start/end/timeout events, but callers must feed completed sample blocks to it; the Pico backend does not wire framing automatically. See [`firmware/pico/README.md`](firmware/pico/README.md) before wiring hardware.
+The Pico SDK backend is a reusable library, not a complete firmware image. A GitHub Actions build against Raspberry Pi Pico SDK 2.1.1 now compiles and links this backend; it has not been tested on RP2040 hardware. Continuous capture requires timely draining of its two caller-owned buffers; the overrun counter reports blocks overwritten before consumption. The portable frame tracker reports start/end/timeout events, but callers must feed completed sample blocks to it; the Pico backend does not wire framing automatically. See [`firmware/pico/README.md`](firmware/pico/README.md) before wiring hardware.
 
 TinyUSB dual-CDC integration, custom MicroPython integration, persistent flash storage, physical Game Boy connection/echo detection, physical ACK/NAK/status signaling, and game-specific timing profiles remain unimplemented or unvalidated. Do not infer Game Boy timings: use cited timing diagrams or provenance-backed capture fixtures.
 

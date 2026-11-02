@@ -7,7 +7,7 @@ This separate Raspberry Pi Pico SDK project builds a reusable backend library, n
     cmake -S firmware/pico -B build-pico -DPICO_SDK_PATH=/path/to/pico-sdk
     cmake --build build-pico
 
-The Pico SDK backend has not been compiled in this environment because the SDK is unavailable. Treat this code as an integration starting point until a real SDK build succeeds.
+The repository's Pico SDK CI workflow successfully configured and built this backend against Raspberry Pi Pico SDK 2.1.1. This verifies compilation/linking only; no RP2040 hardware stress test or waveform measurement has been performed.
 
 ## Backend behavior
 
