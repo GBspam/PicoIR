@@ -1,5 +1,9 @@
 # Release notes
 
+## v0.15-dev — Sampled capture decode integration
+
+Adds `pir_decode_samples()`, which converts packed sampled GPIO data into mark/space edges and invokes the existing protocol decoder. The host regression synthesizes a NEC waveform at 1 MHz and verifies protocol/address/command recovery through the full conversion path. Local CTest passes 7/7 suites. This does not validate PIO hardware, analog receiver delays, sample-clock accuracy, or physical interoperability.
+
 ## v0.14-dev — RP2040 PIO/DMA backend foundation
 
 Adds an optional Pico SDK backend under `firmware/pico/`: PIO samples a digital demodulating-receiver output into 32-bit words through DMA, and a second PIO state machine emits carrier-modulated IR envelope runs for an external transistor LED driver. The portable `pir_samples_to_edges()` helper converts captured samples into mark/space durations and merges runs across DMA word boundaries. Seven C test suites and eight Python host tests pass locally. The Pico SDK backend itself could not be compiled here because the SDK is not installed, and no physical RP2040 or optical hardware test was performed. This is a finite-capture backend foundation, not continuous capture or complete Game Boy hardware support.
