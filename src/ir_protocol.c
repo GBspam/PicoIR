@@ -66,7 +66,8 @@ static bool bit_lsb(pir_waveform_t *w, bool bit, uint32_t mark, uint32_t zero_sp
 }
 
 static bool encode_nec(uint32_t addr, uint32_t cmd, bool repeat, bool samsung, bool extended, pir_waveform_t *w) {
-    if (repeat) return push(w, true, 9000) && push(w, false, 2250) && push(w, true, 560) && push(w, false, 40000);
+    /* Samsung32 repeats are complete frames; only NEC uses the short repeat burst. */
+    if (repeat && !samsung) return push(w, true, 9000) && push(w, false, 2250) && push(w, true, 560) && push(w, false, 40000);
     uint8_t a0 = (uint8_t)addr, a1 = (uint8_t)(addr >> 8), c = (uint8_t)cmd;
     if (samsung) {
         if (!push(w, true, 4500) || !push(w, false, 4500)) return false;
@@ -141,8 +142,8 @@ bool pir_encode(pir_protocol_t p, uint32_t address, uint32_t command,
     case PIR_PROTO_RC5: return encode_rc5(address, command, toggle, out);
     case PIR_PROTO_RC6: return encode_rc6(address, command, toggle, out);
     case PIR_PROTO_PANASONIC: {
-        /* Panasonic/Kaseikyo: 16-bit address + 8-bit command + 8-bit extended data.
-         * The public API carries address and command; extended data is currently zero. */
+        /* Legacy 32-bit Panasonic-like subset only. This is NOT the standard
+         * 48-bit Kaseikyo/Panasonic format; the API lacks its vendor/genre fields. */
         uint32_t data[2] = { address & 0xFFFFu, command & 0xFFu };
         if (!push(out,true,3456) || !push(out,false,1728)) return false;
         for (unsigned i=0;i<16;i++) if (!bit_lsb(out,(data[0]>>i)&1u,432,432,1296)) return false;
@@ -152,12 +153,19 @@ bool pir_encode(pir_protocol_t p, uint32_t address, uint32_t command,
     }
     case PIR_PROTO_JVC: {
         if (!push(out,true,8400) || !push(out,false,4200)) return false;
-        uint32_t data = ((address & 0xF) << 12) | ((command & 0xFF) << 4);
+        /* JVC sends the 8-bit address then the 8-bit command, LSB-first. */
+        uint32_t data = (address & 0xFFu) | ((command & 0xFFu) << 8);
         for (unsigned i=0;i<16;i++) if (!bit_lsb(out,(data>>i)&1u,525,525,1575)) return false;
         return push(out,true,525) && push(out,false,40000);
     }
     default: return false;
     }
+}
+
+static bool frame_gap_or_end(const pir_edge_t *e, size_t n, size_t end) {
+    /* Prevent a 32-bit prefix of a 48-bit Kaseikyo frame being mislabeled as
+     * the legacy 32-bit Panasonic-like subset. */
+    return end >= n || (!e[end].mark && e[end].duration_us >= 10000u);
 }
 
 static bool mark_space(const pir_edge_t *e, size_t n, size_t i, bool mark, uint32_t expected) {
@@ -335,10 +343,11 @@ bool pir_decode(const pir_edge_t *e, size_t n, pir_decode_result_t *out) {
             out->address=(uint32_t)(d>>7); out->raw_data=d; out->bit_count=12; out->confidence=850; return true;
         }
         if (decode_pulse_distance(e,n,s,8400,4200,525,525,1575,16,&d,&end)) {
-            out->protocol=PIR_PROTO_JVC; out->address=(uint32_t)((d>>12)&0xFu);
-            out->command=(uint32_t)((d>>4)&0xFFu); out->raw_data=d; out->bit_count=16; out->confidence=800; return true;
+            out->protocol=PIR_PROTO_JVC; out->address=(uint32_t)(d&0xFFu);
+            out->command=(uint32_t)((d>>8)&0xFFu); out->raw_data=d; out->bit_count=16; out->confidence=800; return true;
         }
-        if (decode_pulse_distance(e,n,s,3456,1728,432,432,1296,32,&d,&end)) {
+        if (decode_pulse_distance(e,n,s,3456,1728,432,432,1296,32,&d,&end) &&
+            frame_gap_or_end(e,n,end)) {
             out->protocol=PIR_PROTO_PANASONIC; out->address=(uint32_t)(d&0xFFFFu);
             out->command=(uint32_t)((d>>16)&0xFFu); out->raw_data=d; out->bit_count=32; out->confidence=750; return true;
         }

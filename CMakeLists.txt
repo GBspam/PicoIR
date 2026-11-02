@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(picoir_05 C)
+project(PicoIR C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_library(picoir STATIC src/ir_protocol.c src/remote_db.c src/signal_analysis.c src/gameboy_ir.c src/gameboy_link.c src/ir_timing.c src/capture_frame.c src/console.c)
@@ -26,6 +26,10 @@ add_test(NAME ir_timing_classifier_tests COMMAND test_ir_timing)
 add_executable(test_signal_samples tests/test_signal_samples.c)
 target_link_libraries(test_signal_samples PRIVATE picoir)
 add_test(NAME sampled_ir_edge_conversion_tests COMMAND test_signal_samples)
+
+add_executable(test_public_consumer tests/test_public_consumer.c)
+target_link_libraries(test_public_consumer PRIVATE picoir)
+add_test(NAME public_library_consumer_tests COMMAND test_public_consumer)
 
 add_executable(test_capture_frame tests/test_capture_frame.c)
 target_link_libraries(test_capture_frame PRIVATE picoir)
