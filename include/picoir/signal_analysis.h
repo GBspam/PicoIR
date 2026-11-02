@@ -19,7 +19,8 @@ bool pir_samples_to_edges(const uint32_t *sample_words, size_t word_count,
                           pir_edge_t *edges, size_t edge_capacity,
                           size_t *edge_count);
 /* Convert sampled GPIO words to edges and decode the resulting waveform.
- * edge_count is set after successful conversion, even if no protocol matches. */
+ * Leading inactive/space runs are skipped for decoding. edge_count is set after
+ * successful conversion, even if no protocol matches. */
 bool pir_decode_samples(const uint32_t *sample_words, size_t word_count,
                         uint32_t sample_rate_hz, bool mark_level,
                         pir_edge_t *edges, size_t edge_capacity,
