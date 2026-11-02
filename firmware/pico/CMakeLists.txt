@@ -15,7 +15,7 @@ target_include_directories(picoir_pico_backend PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/../../include
 )
-target_link_libraries(picoir_pico_backend PUBLIC pico_stdlib hardware_clocks hardware_dma hardware_pio)
+target_link_libraries(picoir_pico_backend PUBLIC pico_stdlib hardware_clocks hardware_dma hardware_pio hardware_sync)
 pico_generate_pio_header(picoir_pico_backend ${CMAKE_CURRENT_LIST_DIR}/pio/ir_rx_sampler.pio)
 pico_generate_pio_header(picoir_pico_backend ${CMAKE_CURRENT_LIST_DIR}/pio/ir_tx_carrier.pio)
 
