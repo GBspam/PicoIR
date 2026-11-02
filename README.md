@@ -1,6 +1,6 @@
 # PicoIR
 
-PicoIR is an early-stage universal IR communications platform for the original RP2040-based Raspberry Pi Pico. The repository contains portable C protocol, remote-database, signal-analysis, and CDC1 command-dispatch modules with host-side unit tests, plus an optional RP2040 PIO/DMA backend under `firmware/pico/`.
+PicoIR is a universal IR communications platform for the original RP2040-based Raspberry Pi Pico. The repository contains portable C protocol, remote-database, signal-analysis, and CDC1 command-dispatch modules with host-side unit tests, plus an optional RP2040 PIO/DMA backend under `firmware/pico/`.
 
 ## Current capabilities
 
