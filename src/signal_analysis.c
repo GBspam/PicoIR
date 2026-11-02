@@ -58,3 +58,15 @@ bool pir_samples_to_edges(const uint32_t *words, size_t word_count,
     *edge_count = produced;
     return true;
 }
+
+
+bool pir_decode_samples(const uint32_t *sample_words, size_t word_count,
+                        uint32_t sample_rate_hz, bool mark_level,
+                        pir_edge_t *edges, size_t edge_capacity,
+                        size_t *edge_count, pir_decode_result_t *decoded) {
+    if (!decoded || !pir_samples_to_edges(sample_words, word_count,
+                                           sample_rate_hz, mark_level,
+                                           edges, edge_capacity, edge_count))
+        return false;
+    return pir_decode(edges, *edge_count, decoded);
+}
