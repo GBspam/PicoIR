@@ -71,8 +71,8 @@ int main(void) {
     uint32_t next_sequence = 0;
     if (!wait_for_block(&samples, &words, &next_sequence, STRESS_BLOCK_US * 2u))
         fail("no block after delayed IRQ");
-    if ((int32_t)(next_sequence - first_sequence) <= 0)
-        fail("sequence did not advance after delayed IRQ");
+    if (next_sequence != first_sequence + 1u)
+        fail("single delayed IRQ did not preserve the next sequence number");
     if (!pir_pico_rx_stream_release(&backend, samples, next_sequence))
         fail("post-IRQ block lease unexpectedly stale");
     pir_pico_rx_stream_stop(&backend);
@@ -85,6 +85,23 @@ int main(void) {
     if (first_sequence != 0u) fail("sequence did not reset on restart");
     if (!pir_pico_rx_stream_release(&backend, samples, first_sequence))
         fail("restart block lease unexpectedly stale");
+
+    /* Leave both buffers unread across several rotations. Taking the two
+     * surviving blocks must return them in oldest-to-newest sequence order. */
+    busy_wait_us_32(STRESS_BLOCK_US * 3u);
+    if (pir_pico_rx_stream_overruns(&backend) == 0u)
+        fail("unread buffers did not increment overrun counter");
+    uint32_t oldest_sequence = 0, newer_sequence = 0;
+    if (!wait_for_block(&samples, &words, &oldest_sequence, STRESS_BLOCK_US))
+        fail("no oldest pending block after consumer delay");
+    if (!pir_pico_rx_stream_release(&backend, samples, oldest_sequence))
+        fail("oldest pending block lease unexpectedly stale");
+    if (!wait_for_block(&samples, &words, &newer_sequence, STRESS_BLOCK_US))
+        fail("no second pending block after consumer delay");
+    if ((int32_t)(newer_sequence - oldest_sequence) <= 0)
+        fail("pending blocks were not returned oldest-first");
+    if (!pir_pico_rx_stream_release(&backend, samples, newer_sequence))
+        fail("second pending block lease unexpectedly stale");
 
     /* Hold a lease across multiple buffer rotations to force overwrite. */
     if (!wait_for_block(&samples, &words, &first_sequence, STRESS_BLOCK_US * 3u))
