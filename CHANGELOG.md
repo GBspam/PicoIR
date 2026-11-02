@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.7 (in development)
+- Added allocation-free RC6 mode-0 decoding for start/mode bits, the double-width toggle bit, 8-bit address, and 8-bit command.
+- Added RC6 encode/decode round-trip regression coverage.
+- Decoder validation currently covers generated host waveforms; real capture timing and device interoperability remain unverified.
+
 ## v0.6 (in development)
 - Added RC5 decoding with Manchester run expansion, toggle extraction, and extended-command field handling.
 - Corrected RC6 mode-0 encoding to emit the start bit, mode bits, double-width toggle bit, 8-bit address, and 8-bit command.

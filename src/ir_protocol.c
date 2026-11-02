@@ -225,6 +225,62 @@ static bool decode_rc5(const pir_edge_t *e, size_t n, size_t start,
     return true;
 }
 
+static bool decode_rc6(const pir_edge_t *e, size_t n, size_t start,
+                       pir_decode_result_t *out) {
+    enum { RC6_T_US = 444, RC6_UNITS = 44 };
+    bool cells[RC6_UNITS];
+    size_t count = 0;
+    if (!mark_space(e, n, start, true, 2666) ||
+        !mark_space(e, n, start + 1, false, 889)) return false;
+
+    for (size_t i = start + 2; i < n && count < RC6_UNITS; ++i) {
+        uint32_t duration = e[i].duration_us;
+        /* The trailing gap may be merged into the final space run. */
+        if (duration >= 30000u && duration < 33000u) {
+            uint32_t tail = duration - 30000u;
+            if (tail && tail <= RC6_T_US * 4u) duration = tail;
+        }
+        unsigned units = (duration + RC6_T_US / 2u) / RC6_T_US;
+        if (!units || units > RC6_UNITS ||
+            !near_us(duration, units * RC6_T_US, TOLERANCE_PCT)) break;
+        while (units-- && count < RC6_UNITS) cells[count++] = e[i].mark;
+    }
+    if (count != RC6_UNITS) return false;
+
+    /* Start bit plus the three mode-0 bits are ordinary Manchester pairs. */
+    bool header_bits[4];
+    for (unsigned bit = 0; bit < 4; ++bit) {
+        bool first = cells[bit * 2u];
+        bool second = cells[bit * 2u + 1u];
+        if (first == second) return false;
+        header_bits[bit] = first && !second;
+    }
+    if (!header_bits[0] || header_bits[1] || header_bits[2] || header_bits[3])
+        return false;
+
+    /* The toggle bit is double width: two T-units per half-bit. */
+    if (cells[8] != cells[9] || cells[10] != cells[11] || cells[8] == cells[10])
+        return false;
+    out->toggle = cells[8] && !cells[10];
+
+    uint32_t address = 0, command = 0;
+    for (unsigned bit = 0; bit < 16; ++bit) {
+        bool first = cells[12u + bit * 2u];
+        bool second = cells[13u + bit * 2u];
+        if (first == second) return false;
+        uint32_t value = (first && !second) ? 1u : 0u;
+        if (bit < 8) address = (address << 1) | value;
+        else command = (command << 1) | value;
+    }
+    out->protocol = PIR_PROTO_RC6;
+    out->address = address;
+    out->command = command;
+    out->raw_data = ((uint64_t)address << 8) | command;
+    out->bit_count = 21;
+    out->confidence = 850;
+    return true;
+}
+
 static bool decode_sony(const pir_edge_t *e,size_t n,size_t start,unsigned bits,uint64_t *data,size_t *end) {
     if (!mark_space(e,n,start,true,2400) || !mark_space(e,n,start+1,false,600)) return false;
     uint64_t v=0; size_t i=start+2;
@@ -275,6 +331,7 @@ bool pir_decode(const pir_edge_t *e, size_t n, pir_decode_result_t *out) {
             out->protocol=PIR_PROTO_PANASONIC; out->address=(uint32_t)(d&0xFFFFu);
             out->command=(uint32_t)((d>>16)&0xFFu); out->raw_data=d; out->bit_count=32; out->confidence=750; return true;
         }
+        if (decode_rc6(e, n, s, out)) return true;
         if (decode_rc5(e, n, s, out)) return true;
     }
     return false;

@@ -24,3 +24,8 @@ The portable host test suite passed 3/3 tests in the local development environme
 ## v0.6 — Manchester protocol improvements (development milestone)
 
 Adds RC5 frame decoding, including address, command, toggle, and extended-command field handling. Corrects RC6 mode-0 encoding to emit the full 8-bit address and 8-bit command with the double-width toggle bit. Host regression tests cover RC5 round-trip behavior and RC6 frame structure. RC6 decoding is still not implemented, and protocol timing/interoperability must be validated against captured hardware waveforms.
+
+
+## v0.7 — RC6 mode-0 decoding (development milestone)
+
+Adds an allocation-free RC6 mode-0 decoder for the leader, start/mode bits, double-width toggle bit, 8-bit address, and 8-bit command. Host tests now cover encode/decode round trips for RC6. This is algorithmic host validation only; physical captures, tolerance behavior on real receivers, and interoperability remain to be tested.

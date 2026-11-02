@@ -30,6 +30,11 @@ int main(void) {
     assert(w.edges[0].mark && w.edges[0].duration_us == 2666);
     assert(!w.edges[1].mark && w.edges[1].duration_us == 889);
 
+    assert(pir_decode(w.edges, w.count, &d));
+    assert(d.protocol == PIR_PROTO_RC6);
+    assert(d.address == 0xA5 && d.command == 0xC3 && d.toggle);
+    assert(d.bit_count == 21);
+
     pir_protocol_t p;
     assert(pir_protocol_parse("nec_ext", &p) && p == PIR_PROTO_NEC_EXT);
     assert(pir_protocol_parse("sony_sirc20", &p) && p == PIR_PROTO_SONY_SIRC20);
