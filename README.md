@@ -1,6 +1,10 @@
-# PicoIR 0.14-dev — RP2040 PIO/DMA Backend Foundation
+# PicoIR 0.15-dev — Sampled Capture Decode Integration
 
 PicoIR is an early-stage universal IR communications platform for the original RP2040-based Raspberry Pi Pico. The current repository contains portable C protocol, remote-database, signal-analysis, and CDC1 command-dispatch modules with host-side unit tests, plus an optional RP2040 PIO/DMA backend foundation under `firmware/pico/`. Version 0.8-dev fixed Sony SIRC decoding when the final data space is merged with the long inter-frame gap. Version 0.9-dev added the first byte-level Game Boy Color IR packet codec and host transfer library. The 0.10-dev increment hardened host-side transfer argument validation and added continuous integration for the C and Python host suites. The 0.11-dev increment added a hardware-independent Game Boy link-session state machine; v0.12-dev adds a byte-oriented adapter that validates complete packets and feeds decisions into that state machine.
+
+## v0.15-dev development increment
+
+Added `pir_decode_samples()`, a portable integration seam that converts packed PIO/DMA GPIO samples into mark/space edges and passes the resulting waveform to the existing protocol decoder. It reports the converted edge count when conversion succeeds, even if no supported protocol matches. A synthetic 1 MHz NEC waveform now exercises the full samples-to-edges-to-decode path in the host suite. This validates software integration only; receiver propagation delay, sampling quantization, actual PIO behavior, and hardware interoperability remain unvalidated.
 
 ## v0.14-dev development increment
 
