@@ -65,7 +65,7 @@ static bool bit_lsb(pir_waveform_t *w, bool bit, uint32_t mark, uint32_t zero_sp
     return push(w, true, mark) && push(w, false, bit ? one_space : zero_space);
 }
 
-static bool encode_nec(uint32_t addr, uint32_t cmd, bool repeat, bool samsung, pir_waveform_t *w) {
+static bool encode_nec(uint32_t addr, uint32_t cmd, bool repeat, bool samsung, bool extended, pir_waveform_t *w) {
     if (repeat) return push(w, true, 9000) && push(w, false, 2250) && push(w, true, 560) && push(w, false, 40000);
     uint8_t a0 = (uint8_t)addr, a1 = (uint8_t)(addr >> 8), c = (uint8_t)cmd;
     if (samsung) {
@@ -77,7 +77,7 @@ static bool encode_nec(uint32_t addr, uint32_t cmd, bool repeat, bool samsung, p
     }
     if (!push(w, true, 9000) || !push(w, false, 4500)) return false;
     uint8_t bytes[4];
-    if (a1 || addr > 0xFFu) { bytes[0]=a0; bytes[1]=a1; }
+    if (extended) { bytes[0]=a0; bytes[1]=a1; }
     else { bytes[0]=a0; bytes[1]=(uint8_t)~a0; }
     bytes[2]=c; bytes[3]=(uint8_t)~c;
     for (unsigned j=0;j<4;j++) for (unsigned i=0;i<8;i++)
@@ -106,8 +106,8 @@ static bool manchester_bit(pir_waveform_t *w, bool bit, uint32_t half_us) {
 }
 
 static bool encode_rc5(uint32_t addr, uint32_t cmd, bool toggle, pir_waveform_t *w) {
-    uint16_t frame = (uint16_t)((1u<<13) | (1u<<12) | ((toggle?1u:0u)<<11) |
-                    ((addr & 0x1Fu)<<6) | (cmd & 0x3Fu));
+    uint16_t frame = (uint16_t)((1u<<13) | (((cmd & 0x40u) ? 0u : 1u)<<12) |
+                    ((toggle?1u:0u)<<11) | ((addr & 0x1Fu)<<6) | (cmd & 0x3Fu));
     for (int i=13;i>=0;i--) if (!manchester_bit(w, (frame>>i)&1u, 889)) return false;
     return push(w, false, 30000);
 }
@@ -132,9 +132,9 @@ bool pir_encode(pir_protocol_t p, uint32_t address, uint32_t command,
     if (!out) return false;
     memset(out, 0, sizeof(*out));
     switch (p) {
-    case PIR_PROTO_NEC: return encode_nec(address & 0xFFu, command & 0xFFu, repeat, false, out);
-    case PIR_PROTO_NEC_EXT: return encode_nec(address & 0xFFFFu, command & 0xFFu, repeat, false, out);
-    case PIR_PROTO_SAMSUNG: return encode_nec(address & 0xFFFFu, command & 0xFFu, repeat, true, out);
+    case PIR_PROTO_NEC: return encode_nec(address & 0xFFu, command & 0xFFu, repeat, false, false, out);
+    case PIR_PROTO_NEC_EXT: return encode_nec(address & 0xFFFFu, command & 0xFFu, repeat, false, true, out);
+    case PIR_PROTO_SAMSUNG: return encode_nec(address & 0xFFFFu, command & 0xFFu, repeat, true, false, out);
     case PIR_PROTO_SONY_SIRC12: return encode_sony(address & 0x1Fu, command & 0x7Fu, 12, out);
     case PIR_PROTO_SONY_SIRC15: return encode_sony(address & 0xFFu, command & 0x7Fu, 15, out);
     case PIR_PROTO_SONY_SIRC20: return encode_sony(address & 0x1FFFu, command & 0x7Fu, 20, out);
@@ -316,6 +316,9 @@ bool pir_decode(const pir_edge_t *e, size_t n, pir_decode_result_t *out) {
             out->command=c; out->raw_data=d; out->bit_count=32; out->confidence=930; return true;
         }
         if (decode_pulse_distance(e,n,s,4500,4500,560,560,1690,32,&d,&end)) {
+            uint8_t command = (uint8_t)(d >> 16);
+            uint8_t command_inverse = (uint8_t)(d >> 24);
+            if ((uint8_t)(command ^ command_inverse) != 0xFFu) continue;
             out->protocol=PIR_PROTO_SAMSUNG; out->address=(uint32_t)(d&0xFFFFu);
             out->command=(uint32_t)((d>>16)&0xFFu); out->raw_data=d; out->bit_count=32; out->confidence=850; return true;
         }

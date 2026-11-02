@@ -106,7 +106,7 @@ class GameBoyIRClient:
             self._owns_serial = True
         else:
             self._owns_serial = False
-        if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             if self._owns_serial:
                 serial_port.close()
             raise ValueError("timeout must be a finite number greater than zero")
@@ -141,20 +141,30 @@ class GameBoyIRClient:
 
     def _readline(self, timeout: Optional[float] = None) -> str:
         # pyserial's timeout is per read; temporarily tighten it for each reply.
-        old_timeout = getattr(self.serial, "timeout", None)
+        # Injected serial objects may have timeout=None (infinite blocking).
+        # Impose our deadline for every read and restore the original setting.
+        if not hasattr(self.serial, "timeout"):
+            raise GameBoyIRException(
+                "serial_port must expose a writable timeout attribute for bounded reads"
+            )
+        old_timeout = self.serial.timeout
         limit = self.timeout if timeout is None else timeout
-        deadline = time.monotonic() + max(0.0, limit)
+        if isinstance(limit, bool) or not isinstance(limit, (int, float)) or not math.isfinite(limit) or limit <= 0:
+            raise ValueError("timeout must be a finite number greater than zero")
+        deadline = time.monotonic() + limit
         try:
-            while time.monotonic() < deadline:
-                if old_timeout is not None:
-                    self.serial.timeout = min(old_timeout, max(0.01, deadline - time.monotonic()))
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise GameBoyIRTimeout("timed out waiting for PicoIR CDC1 response")
+                self.serial.timeout = remaining
                 raw = self.serial.readline()
                 if raw:
+                    if time.monotonic() > deadline:
+                        raise GameBoyIRTimeout("timed out waiting for PicoIR CDC1 response")
                     return raw.decode("ascii", errors="replace").strip()
-            raise GameBoyIRTimeout("timed out waiting for PicoIR CDC1 response")
         finally:
-            if old_timeout is not None:
-                self.serial.timeout = old_timeout
+            self.serial.timeout = old_timeout
 
     def _command(self, command: str, *, timeout: Optional[float] = None) -> str:
         self._write_command(command)
@@ -225,7 +235,7 @@ class GameBoyIRClient:
         """Receive and validate one packet from the remote Game Boy device."""
         self._require_enabled()
         seconds = self.timeout if timeout is None else timeout
-        if not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or seconds <= 0:
+        if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or seconds <= 0:
             raise ValueError("timeout must be a finite number greater than zero")
         timeout_ms = max(1, min(60000, int(seconds * 1000)))
         response = self._command(f"GB RECEIVE {timeout_ms}", timeout=seconds + 0.25)

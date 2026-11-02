@@ -1,7 +1,7 @@
 import unittest
 
 from picoir_gameboy import (
-    GameBoyIRClient, GameBoyIRException, GameBoyPacketError,
+    GameBoyIRClient, GameBoyIRException, GameBoyIRTimeout, GameBoyPacketError,
     encode_packet, decode_packet,
 )
 
@@ -108,14 +108,23 @@ class ClientTests(unittest.TestCase):
                     client.receive(timeout=1, max_bytes=max_bytes)
 
     def test_rejects_invalid_timeouts(self):
-        for timeout in (0, -1, float("nan"), float("inf")):
+        for timeout in (0, -1, True, float("nan"), float("inf")):
             with self.subTest(timeout=timeout):
                 with self.assertRaises(ValueError):
                     GameBoyIRClient(serial_port=FakeSerial(), timeout=timeout)
         client = GameBoyIRClient(serial_port=FakeSerial())
         client.enable()
-        with self.assertRaises(ValueError):
-            client.receive_packet(timeout=0)
+        for timeout in (0, True):
+            with self.subTest(timeout=timeout), self.assertRaises(ValueError):
+                client.receive_packet(timeout=timeout)
+
+    def test_injected_infinite_timeout_is_temporarily_bounded(self):
+        fake = FakeSerial()
+        fake.timeout = None
+        client = GameBoyIRClient(serial_port=fake, timeout=0.01)
+        with self.assertRaises(GameBoyIRTimeout):
+            client._readline()
+        self.assertIsNone(fake.timeout)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ PicoIR is a universal IR communications platform for the original RP2040-based R
 - Portable consumer-IR encoding/decoding with partial protocol coverage, including NEC-family, Sony SIRC, RC5, and RC6 paths. Hardware timing tolerance and interoperability still require physical validation.
 - A separate Game Boy Color byte-level packet codec, host transfer library, and event-driven link-session coordinator. Game-specific pulse timing and physical handshake/status signaling are not implemented; there is no single IR protocol shared by every Game Boy Color game.
 - Generic explicit timing-window classification, packed GPIO sample conversion to mark/space edges, and a portable frame tracker. `pir_decode_samples()` skips leading idle-space runs; `pir_frame_tracker_feed()` reports frame starts, inter-frame-gap ends, and frame timeouts.
-- A CDC1 command-dispatch contract with injected callbacks, plus a RAM-only remote database and CSV/JSON export helpers.
+- A CDC1 command-dispatch contract included in the public `picoir` library target, plus a RAM-only remote database and CSV/JSON export helpers.
 - An optional Pico SDK backend for finite DMA capture, continuous two-buffer ping-pong DMA capture with sequence numbers and overrun accounting, and PIO carrier-envelope transmission through an external transistor driver.
 
 ## Hardware backend status
@@ -28,6 +28,10 @@ TinyUSB dual-CDC integration, custom MicroPython integration, persistent flash s
 - `RAW EXPORT CSV` / `RAW EXPORT JSON` (exports the remote database)
 
 All I/O is injected through callbacks. The transmit callback must copy or consume the waveform synchronously before returning; the console itself does not own the PIO/DMA transmitter. Raw replay passes saved edges and carrier metadata to a separate backend callback.
+
+## Export fidelity
+
+`RAW EXPORT CSV` is metadata-only and omits raw edge durations and toggle state; it is not suitable for waveform backup or restore. `RAW EXPORT JSON` includes mark/duration edge pairs and carrier frequency for raw entries, and protocol/address/command/toggle metadata for decoded entries. Decoded entries have no captured edges and must be re-encoded to transmit, so JSON is not a bit-exact waveform archive for them. Neither format is a versioned persistence format.
 
 ## Known boundaries
 

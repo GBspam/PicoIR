@@ -45,6 +45,26 @@ int main(void) {
     assert(d.address == 0x12 && d.command == 0x2D && d.toggle);
     assert(d.bit_count == 14);
 
+    /* RC5 extended commands clear the field bit and preserve command bit 6. */
+    assert(pir_encode(PIR_PROTO_RC5, 0x12, 0x65, false, false, &w));
+    assert(pir_decode(w.edges, w.count, &d));
+    assert(d.protocol == PIR_PROTO_RC5 && d.address == 0x12 && d.command == 0x65);
+
+    /* NEC Extended always encodes two address bytes, even for a low address. */
+    assert(pir_encode(PIR_PROTO_NEC_EXT, 0x0020, 0x10, false, false, &w));
+    assert(pir_decode(w.edges, w.count, &d));
+    assert(d.protocol == PIR_PROTO_NEC_EXT && d.address == 0x0020 && d.command == 0x10);
+    assert(pir_encode(PIR_PROTO_NEC_EXT, 0x1234, 0x56, false, false, &w));
+    assert(pir_decode(w.edges, w.count, &d));
+    assert(d.protocol == PIR_PROTO_NEC_EXT && d.address == 0x1234 && d.command == 0x56);
+
+    /* Samsung's command inverse byte is mandatory. */
+    assert(pir_encode(PIR_PROTO_SAMSUNG, 0x1234, 0x56, false, false, &w));
+    assert(pir_decode(w.edges, w.count, &d) && d.protocol == PIR_PROTO_SAMSUNG);
+    w.edges[2u + 24u * 2u + 1u].duration_us =
+        w.edges[2u + 24u * 2u + 1u].duration_us == 560u ? 1690u : 560u;
+    assert(!pir_decode(w.edges, w.count, &d));
+
     /* RC6 mode 0 carries a full 8-bit address and 8-bit command. */
     assert(pir_encode(PIR_PROTO_RC6, 0xA5, 0xC3, false, true, &w));
     assert(w.count > 20);

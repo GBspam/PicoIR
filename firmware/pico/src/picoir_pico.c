@@ -39,17 +39,72 @@ static void pir_pico_rx_dma_irq(void) {
     }
 }
 
-bool pir_pico_backend_init(pir_pico_backend_t *b,PIO pio,uint rx_sm,uint tx_sm,uint rx_pin,uint tx_pin,uint32_t sample_rate_hz,uint32_t carrier_hz){
-    if(!b||!pio||!valid_sm_pair(rx_sm,tx_sm)||rx_pin>=30u||tx_pin>=30u||rx_pin==tx_pin||sample_rate_hz==0||sample_rate_hz>1000000u||carrier_hz==0||(uint64_t)sample_rate_hz*2u>clock_get_hz(clk_sys)||(uint64_t)carrier_hz*5u>clock_get_hz(clk_sys))return false;
-    memset(b,0,sizeof(*b)); b->rx_dma_channel=-1; b->tx_dma_channel=-1;
-    for (unsigned i=0;i<PIR_PICO_RX_STREAM_BUFFERS;i++) b->rx_stream_dma[i]=-1;
-    b->pio=pio;b->rx_sm=rx_sm;b->tx_sm=tx_sm;b->rx_pin=rx_pin;b->tx_pin=tx_pin;b->sample_rate_hz=sample_rate_hz;b->carrier_hz=carrier_hz;
-    if(!pio_can_add_program(pio,&picoir_ir_rx_sampler_program)||!pio_can_add_program(pio,&picoir_ir_tx_carrier_program))return false;
-    b->rx_offset=pio_add_program(pio,&picoir_ir_rx_sampler_program);b->tx_offset=pio_add_program(pio,&picoir_ir_tx_carrier_program);
-    pio_gpio_init(pio,rx_pin);pio_sm_set_consecutive_pindirs(pio,rx_sm,rx_pin,1,false);
-    pio_sm_config rx_cfg=picoir_ir_rx_sampler_program_get_default_config(b->rx_offset);sm_config_set_in_pins(&rx_cfg,rx_pin);sm_config_set_in_shift(&rx_cfg,false,true,32);sm_config_set_clkdiv(&rx_cfg,(float)clock_get_hz(clk_sys)/((float)sample_rate_hz*2.0f));pio_sm_init(pio,rx_sm,b->rx_offset,&rx_cfg);
-    pio_gpio_init(pio,tx_pin);pio_sm_set_consecutive_pindirs(pio,tx_sm,tx_pin,1,true);
-    pio_sm_config tx_cfg=picoir_ir_tx_carrier_program_get_default_config(b->tx_offset);sm_config_set_set_pins(&tx_cfg,tx_pin,1);sm_config_set_out_shift(&tx_cfg,false,false,32);sm_config_set_clkdiv(&tx_cfg,(float)clock_get_hz(clk_sys)/((float)carrier_hz*5.0f));pio_sm_init(pio,tx_sm,b->tx_offset,&tx_cfg);pio_sm_set_enabled(pio,tx_sm,false);pio_sm_set_pins_with_mask(pio,tx_sm,0u,1u<<tx_pin);b->initialized=true;return true;
+bool pir_pico_backend_init(pir_pico_backend_t *b, PIO pio, uint rx_sm,
+                           uint tx_sm, uint rx_pin, uint tx_pin,
+                           uint32_t sample_rate_hz, uint32_t carrier_hz) {
+    if (!b || !pio || !valid_sm_pair(rx_sm, tx_sm) || rx_pin >= 30u ||
+        tx_pin >= 30u || rx_pin == tx_pin || sample_rate_hz == 0 ||
+        sample_rate_hz > 1000000u || carrier_hz == 0 ||
+        (uint64_t)sample_rate_hz * 2u > clock_get_hz(clk_sys) ||
+        (uint64_t)carrier_hz * 5u > clock_get_hz(clk_sys))
+        return false;
+
+    /* Do not steal PIO resources owned by another driver. */
+    if (pio_sm_is_claimed(pio, rx_sm) || pio_sm_is_claimed(pio, tx_sm) ||
+        !pio_can_add_program(pio, &picoir_ir_rx_sampler_program) ||
+        !pio_can_add_program(pio, &picoir_ir_tx_carrier_program))
+        return false;
+
+    memset(b, 0, sizeof(*b));
+    b->rx_dma_channel = -1;
+    b->tx_dma_channel = -1;
+    for (unsigned i = 0; i < PIR_PICO_RX_STREAM_BUFFERS; ++i)
+        b->rx_stream_dma[i] = -1;
+    b->pio = pio;
+    b->rx_sm = rx_sm;
+    b->tx_sm = tx_sm;
+    b->rx_pin = rx_pin;
+    b->tx_pin = tx_pin;
+    b->sample_rate_hz = sample_rate_hz;
+    b->carrier_hz = carrier_hz;
+
+    pio_sm_claim(pio, rx_sm);
+    pio_sm_claim(pio, tx_sm);
+    b->rx_offset = pio_add_program(pio, &picoir_ir_rx_sampler_program);
+    if (!pio_can_add_program(pio, &picoir_ir_tx_carrier_program)) {
+        pio_remove_program(pio, &picoir_ir_rx_sampler_program, b->rx_offset);
+        pio_sm_unclaim(pio, rx_sm);
+        pio_sm_unclaim(pio, tx_sm);
+        memset(b, 0, sizeof(*b));
+        b->rx_dma_channel = -1;
+        b->tx_dma_channel = -1;
+        for (unsigned i = 0; i < PIR_PICO_RX_STREAM_BUFFERS; ++i)
+            b->rx_stream_dma[i] = -1;
+        return false;
+    }
+    b->tx_offset = pio_add_program(pio, &picoir_ir_tx_carrier_program);
+
+    pio_gpio_init(pio, rx_pin);
+    pio_sm_set_consecutive_pindirs(pio, rx_sm, rx_pin, 1, false);
+    pio_sm_config rx_cfg = picoir_ir_rx_sampler_program_get_default_config(b->rx_offset);
+    sm_config_set_in_pins(&rx_cfg, rx_pin);
+    sm_config_set_in_shift(&rx_cfg, false, true, 32);
+    sm_config_set_clkdiv(&rx_cfg, (float)clock_get_hz(clk_sys) /
+                                  ((float)sample_rate_hz * 2.0f));
+    pio_sm_init(pio, rx_sm, b->rx_offset, &rx_cfg);
+
+    pio_gpio_init(pio, tx_pin);
+    pio_sm_set_consecutive_pindirs(pio, tx_sm, tx_pin, 1, true);
+    pio_sm_config tx_cfg = picoir_ir_tx_carrier_program_get_default_config(b->tx_offset);
+    sm_config_set_set_pins(&tx_cfg, tx_pin, 1);
+    sm_config_set_out_shift(&tx_cfg, false, false, 32);
+    sm_config_set_clkdiv(&tx_cfg, (float)clock_get_hz(clk_sys) /
+                                  ((float)carrier_hz * 5.0f));
+    pio_sm_init(pio, tx_sm, b->tx_offset, &tx_cfg);
+    pio_sm_set_enabled(pio, tx_sm, false);
+    pio_sm_set_pins_with_mask(pio, tx_sm, 0u, 1u << tx_pin);
+    b->initialized = true;
+    return true;
 }
 bool pir_pico_rx_start(pir_pico_backend_t *b,uint32_t *sample_words,size_t word_count){
     if(!b||!b->initialized||!sample_words||word_count==0||word_count>UINT32_MAX||b->rx_running||b->tx_running)return false;
@@ -127,3 +182,26 @@ bool pir_pico_tx_start(pir_pico_backend_t *b,const pir_pico_tx_run_t *runs,size_
 }
 bool pir_pico_tx_done(pir_pico_backend_t *b){if(!b||!b->tx_running||b->tx_dma_channel<0)return false;if(dma_channel_is_busy((uint)b->tx_dma_channel))return false;if(time_us_64()<b->tx_expected_done_us||!pio_sm_is_tx_fifo_empty(b->pio,b->tx_sm))return false;pio_sm_set_enabled(b->pio,b->tx_sm,false);pio_sm_set_pins_with_mask(b->pio,b->tx_sm,0u,1u<<b->tx_pin);dma_channel_unclaim((uint)b->tx_dma_channel);b->tx_dma_channel=-1;b->tx_running=false;return true;}
 void pir_pico_tx_abort(pir_pico_backend_t *b){if(!b||!b->initialized)return;pio_sm_set_enabled(b->pio,b->tx_sm,false);pio_sm_set_pins_with_mask(b->pio,b->tx_sm,0u,1u<<b->tx_pin);if(b->tx_dma_channel>=0){dma_channel_abort((uint)b->tx_dma_channel);dma_channel_unclaim((uint)b->tx_dma_channel);b->tx_dma_channel=-1;}b->tx_running=false;pio_sm_clear_fifos(b->pio,b->tx_sm);}
+
+void pir_pico_backend_deinit(pir_pico_backend_t *b) {
+    if (!b || !b->initialized) return;
+    if (b->rx_streaming) pir_pico_rx_stream_stop(b);
+    else if (b->rx_running) pir_pico_rx_abort(b);
+    pir_pico_tx_abort(b);
+
+    pio_sm_set_enabled(b->pio, b->rx_sm, false);
+    pio_sm_set_enabled(b->pio, b->tx_sm, false);
+    pio_sm_set_pins_with_mask(b->pio, b->tx_sm, 0u, 1u << b->tx_pin);
+    pio_sm_clear_fifos(b->pio, b->rx_sm);
+    pio_sm_clear_fifos(b->pio, b->tx_sm);
+    pio_remove_program(b->pio, &picoir_ir_tx_carrier_program, b->tx_offset);
+    pio_remove_program(b->pio, &picoir_ir_rx_sampler_program, b->rx_offset);
+    pio_sm_unclaim(b->pio, b->tx_sm);
+    pio_sm_unclaim(b->pio, b->rx_sm);
+
+    memset(b, 0, sizeof(*b));
+    b->rx_dma_channel = -1;
+    b->tx_dma_channel = -1;
+    for (unsigned i = 0; i < PIR_PICO_RX_STREAM_BUFFERS; ++i)
+        b->rx_stream_dma[i] = -1;
+}

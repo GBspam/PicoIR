@@ -66,7 +66,7 @@ bool pir_db_export_json(const pir_remote_db_t *db, pir_write_fn w, void *ctx) {
     for (size_t i=0;i<PIR_DB_MAX_ENTRIES;i++) { const pir_remote_entry_t *e=&db->entries[i]; if (!e->used) continue;
         if (!first && !emit(w,ctx,",")) return false; first=false;
         if (!emit(w,ctx,"{\"name\":" ) || !json_string(w,ctx,e->name) || !emit(w,ctx,",\"kind\":" ) || !json_string(w,ctx,e->kind==PIR_ENTRY_RAW?"RAW":"DECODED") || !emit(w,ctx,",\"protocol\":" ) || !json_string(w,ctx,pir_protocol_name(e->protocol))) return false;
-        char b[160]; int n=snprintf(b,sizeof b,",\"address\":%lu,\"command\":%lu,\"carrier_hz\":%lu,\"edges\":[",(unsigned long)e->address,(unsigned long)e->command,(unsigned long)e->carrier_hz); if (n<0 || (size_t)n>=sizeof b || !w(ctx,b,(size_t)n)) return false;
+        char b[160]; int n=snprintf(b,sizeof b,",\"address\":%lu,\"command\":%lu,\"toggle\":%s,\"carrier_hz\":%lu,\"edges\":[",(unsigned long)e->address,(unsigned long)e->command,e->toggle?"true":"false",(unsigned long)e->carrier_hz); if (n<0 || (size_t)n>=sizeof b || !w(ctx,b,(size_t)n)) return false;
         for (size_t j=0;j<e->edge_count;j++) { n=snprintf(b,sizeof b,"%s{\"mark\":%s,\"duration_us\":%lu}",j?",":"",e->edges[j].mark?"true":"false",(unsigned long)e->edges[j].duration_us); if (n<0 || (size_t)n>=sizeof b || !w(ctx,b,(size_t)n)) return false; }
         if (!emit(w,ctx,"]}")) return false;
     } return emit(w,ctx,"]}");

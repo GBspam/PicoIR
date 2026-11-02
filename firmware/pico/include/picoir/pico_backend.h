@@ -26,9 +26,12 @@ typedef struct {
     uint32_t tx_words[PIR_PICO_TX_MAX_RUNS];
     bool initialized; bool rx_running; bool rx_streaming; bool tx_running;
 } pir_pico_backend_t;
+/* Use an unused backend object and dedicated, unclaimed state machines. */
 bool pir_pico_backend_init(pir_pico_backend_t *backend, PIO pio,
                            uint rx_sm, uint tx_sm, uint rx_pin, uint tx_pin,
                            uint32_t sample_rate_hz, uint32_t carrier_hz);
+/* Stops activity, removes owned PIO programs, and releases claimed SMs. */
+void pir_pico_backend_deinit(pir_pico_backend_t *backend);
 bool pir_pico_rx_start(pir_pico_backend_t *backend,uint32_t *sample_words,size_t word_count);
 bool pir_pico_rx_done(pir_pico_backend_t *backend);
 void pir_pico_rx_abort(pir_pico_backend_t *backend);

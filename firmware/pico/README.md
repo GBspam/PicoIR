@@ -22,18 +22,23 @@ The Pico SDK backend has not been compiled in this environment because the SDK i
 
 ## API outline
 
-1. `pir_pico_backend_init()` installs both PIO programs and configures sample/carrier clocks.
+1. Zero-initialize an unused `pir_pico_backend_t`, choose two distinct unclaimed state machines in the same PIO block, and call `pir_pico_backend_init()`. The backend claims both SMs and owns its two PIO programs until `pir_pico_backend_deinit()`.
 2. Use either `pir_pico_rx_start()` for a finite capture or `pir_pico_rx_stream_start()` for continuous two-buffer capture. Poll finite capture with `pir_pico_rx_done()`; drain stream blocks with `pir_pico_rx_stream_take()` and inspect `pir_pico_rx_stream_overruns()`.
 3. Call `pir_pico_rx_stream_stop()` to stop streaming and release both DMA channels.
 4. `pir_pico_tx_start()` copies a run array to backend-owned storage and starts DMA/PIO transmission; poll `pir_pico_tx_done()`. Abort calls leave TX inactive.
+5. Call `pir_pico_backend_deinit()` before reusing the state machines or PIO instruction memory. It stops active capture/transmission, releases DMA channels, removes owned PIO programs, and unclaims both state machines.
 
-Do not start RX and TX simultaneously on one backend instance. Program/SM ownership is dedicated to this backend; there is no general PIO resource manager or deinit routine yet. The streaming DMA interrupt handler is shared with other DMA IRQ0 users, but this backend supports only one streaming instance at a time.
+Do not start RX and TX simultaneously on one backend instance. Program/SM ownership is dedicated to this backend instance. Initialization refuses already-claimed state machines or insufficient PIO instruction memory. Do not independently remove its PIO programs or use its claimed state machines. The streaming DMA interrupt handler is shared with other DMA IRQ0 users, but this backend supports only one streaming instance at a time.
+
+## Export fidelity
+
+`RAW EXPORT CSV` is a metadata summary only: it includes name, entry kind, protocol, address, command, carrier frequency, and edge count, but omits edge durations and toggle state. It is not a backup/restore format. `RAW EXPORT JSON` includes raw edge mark/duration pairs and carrier frequency for raw entries; decoded entries export protocol/address/command/toggle metadata and an empty edge list. JSON is higher fidelity, but decoded records must be re-encoded rather than replaying a captured waveform. Neither export is a versioned persistence format.
 
 ## Validation still required
 
 - Build with the supported Pico SDK/toolchain and resolve any SDK-version API differences.
 - Add a hardware stress test that deliberately delays block consumption and verifies overrun counts and sequence ordering.
-- Check PIO timing and DMA behavior on RP2040 hardware; verify interrupt rearming at the selected sample rate and buffer size.
+- Check PIO timing and DMA behavior on RP2040 hardware; verify interrupt rearming at the selected sample rate and buffer size. This has not been performed; no measured waveform timing or physical interoperability is claimed.
 - Feed completed blocks to `pir_frame_tracker_feed()` to detect frame start, inter-frame gap, and timeout events; automatic wiring into the backend/console remains future work.
 - Measure mark/space timing and carrier frequency with a logic analyzer or photodiode.
 - Verify receiver polarity and propagation delay.
