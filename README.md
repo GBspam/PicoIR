@@ -1,24 +1,26 @@
 # PicoIR
 
-PicoIR is an open-source infrared communications platform targeting the original Raspberry Pi Pico (RP2040).
+PicoIR is an infrared communications platform targeting the original Raspberry Pi Pico (RP2040).
 
 ## Project goals
 
 - Expose two independent USB CDC interfaces: a transparent binary pipe and a separate configuration/diagnostics console.
 - Use RP2040 PIO and DMA for timing-sensitive infrared capture and transmission.
-- Support consumer IR protocol encoding/decoding, raw waveform learning and replay, and exportable remote-control records.
-- Provide a discrete 940 nm IR optical front end rather than a dedicated IR encoder/decoder IC.
+- Support consumer IR encoding/decoding, raw waveform learning and replay, and exportable remote-control records.
+- Use a discrete 940 nm IR optical front end rather than a dedicated IR encoder/decoder IC.
 - Develop IrDA and selected game-console accessory profiles as later protocol families.
 
-## Current source snapshot
+## Development status
 
-The current development snapshot contains a portable C consumer-IR protocol layer, a RAM-backed remote database, signal-analysis helpers, and a hardware-independent CDC1 command dispatcher. The protocol library currently covers initial transmit encoders for NEC/NEC Extended, Sony SIRC, RC5, RC6, Samsung, Panasonic, and JVC; receive decoding and protocol edge cases remain incomplete.
+The local development snapshot has a portable C consumer-IR protocol layer, a RAM-backed remote database, signal-analysis helpers, and a hardware-independent CDC1 command dispatcher. The protocol library includes initial transmit encoders for NEC/NEC Extended, Sony SIRC, RC5, RC6, Samsung, Panasonic, and JVC; receive decoding and protocol edge cases remain incomplete.
 
-The command dispatcher is a backend interface, not yet a complete TinyUSB CDC application. The remote database is RAM-only. RP2040 PIO/DMA, the dual-CDC USB integration, MicroPython integration, and physical hardware validation are not yet complete.
+**Repository sync status:** this GitHub branch currently contains project documentation only. The source files, complete local commit ancestry, and version tags have not yet been mirrored here. Therefore, the build commands below apply to the local source snapshot, not this documentation-only branch.
+
+The command dispatcher is not yet a complete TinyUSB CDC application. The remote database is RAM-only. RP2040 PIO/DMA, dual-CDC USB integration, MicroPython integration, and physical hardware validation are not complete.
 
 ## Build and host tests
 
-Requires CMake and a C11 compiler:
+For the local source snapshot, use CMake and a C11 compiler:
 
 ```sh
 cmake -S . -B build
@@ -26,7 +28,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The host test suite covers the portable protocol layer, remote database/export helpers, and console dispatcher. Passing host tests do not imply hardware validation.
+The local host test suite passed 3/3 tests. Host tests do not imply hardware validation.
 
 ## Version history
 
@@ -40,7 +42,7 @@ The v0.1 and v0.2 tags are documentation/recovery checkpoints, not claims of rec
 
 ## Hardware and safety
 
-The IR LED driver must use appropriate current limiting and transistor drive. Verify electrical limits and optical performance on the target hardware before use. This repository does not claim physical validation of the optical front end or PIO timing.
+The IR LED driver must use appropriate current limiting and transistor drive. Verify electrical limits and optical performance on the target hardware before use. No physical validation of the optical front end or PIO timing is claimed.
 
 ## License
 
