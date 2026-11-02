@@ -23,7 +23,7 @@ int main(void) {
     pir_decode_result_t decoded;
     static uint32_t packed[4096];
     pir_edge_t decoded_edges[PIR_MAX_EDGES];
-    size_t sample_index = 0;
+    size_t sample_index = 100u; /* leading idle space before the first mark */
     assert(pir_encode(PIR_PROTO_NEC, 0x20u, 0x10u, false, false, &waveform));
     for (size_t i = 0; i < waveform.count; ++i) {
         for (uint32_t j = 0; j < waveform.edges[i].duration_us; ++j) {
