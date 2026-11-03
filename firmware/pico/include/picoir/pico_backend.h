@@ -11,6 +11,16 @@ extern "C" {
 #define PIR_PICO_RX_STREAM_BUFFERS 2u
 #define PIR_PICO_RX_STREAM_MIN_WORDS 8u
 typedef struct {
+    uint32_t effective_sample_rate_hz;
+    uint32_t block_period_us;
+    uint32_t overrun_count;
+    uint32_t timing_fault_count;
+    uint32_t min_irq_interval_us;
+    uint32_t max_irq_interval_us;
+    uint32_t max_irq_lateness_us;
+    uint64_t blocks_completed;
+} pir_pico_rx_timing_stats_t;
+typedef struct {
     PIO pio; uint rx_sm; uint tx_sm;
     int rx_dma_channel; int tx_dma_channel;
     int rx_stream_dma[PIR_PICO_RX_STREAM_BUFFERS];
@@ -21,6 +31,13 @@ typedef struct {
     volatile uint32_t rx_stream_sequence[PIR_PICO_RX_STREAM_BUFFERS];
     volatile uint32_t rx_stream_overrun_count;
     volatile uint32_t rx_stream_next_sequence;
+    volatile uint32_t rx_stream_timing_fault_count;
+    volatile uint64_t rx_stream_blocks_completed;
+    volatile uint64_t rx_stream_start_us;
+    volatile uint64_t rx_stream_last_irq_us;
+    volatile uint32_t rx_stream_min_irq_interval_us;
+    volatile uint32_t rx_stream_max_irq_interval_us;
+    volatile uint32_t rx_stream_max_irq_lateness_us;
     uint rx_offset; uint tx_offset; uint rx_pin; uint tx_pin;
     uint32_t sample_rate_hz; uint32_t carrier_hz;
     uint64_t tx_started_us; uint64_t tx_expected_done_us;
@@ -49,6 +66,9 @@ bool pir_pico_rx_stream_take(pir_pico_backend_t *backend,
 bool pir_pico_rx_stream_release(pir_pico_backend_t *backend,
                                 const uint32_t *samples, uint32_t sequence);
 uint32_t pir_pico_rx_stream_overruns(pir_pico_backend_t *backend);
+/* ISR-side timing estimates; not logic-analyzer measurements of GPIO sampling. */
+bool pir_pico_rx_stream_get_timing_stats(pir_pico_backend_t *backend,
+                                         pir_pico_rx_timing_stats_t *stats);
 void pir_pico_rx_stream_stop(pir_pico_backend_t *backend);
 typedef struct { uint32_t duration_us; bool carrier_on; } pir_pico_tx_run_t;
 bool pir_pico_tx_start(pir_pico_backend_t *backend,const pir_pico_tx_run_t *runs,size_t run_count);

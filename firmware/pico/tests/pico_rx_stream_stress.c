@@ -75,6 +75,37 @@ int main(void) {
         fail("single delayed IRQ did not preserve the next sequence number");
     if (!pir_pico_rx_stream_release(&backend, samples, next_sequence))
         fail("post-IRQ block lease unexpectedly stale");
+    pir_pico_rx_timing_stats_t timing;
+    if (!pir_pico_rx_stream_get_timing_stats(&backend, &timing))
+        fail("timing stats unavailable while streaming");
+    if (timing.max_irq_lateness_us < 5000u)
+        fail("delayed IRQ was not reflected in measured ISR lateness");
+    if (timing.timing_fault_count != 0u)
+        fail("bounded IRQ delay unexpectedly caused a chain restart");
+
+    /* Mask interrupts across two block completions and verify chain recovery. */
+    busy_wait_us_32(STRESS_BLOCK_US - 10000u);
+    irq_state = save_and_disable_interrupts();
+    busy_wait_us_32(STRESS_BLOCK_US + 20000u);
+    restore_interrupts(irq_state);
+    uint32_t delayed_oldest = 0u, delayed_newer = 0u;
+    if (!wait_for_block(&samples, &words, &delayed_oldest, STRESS_BLOCK_US / 2u))
+        fail("no pending block after coalesced DMA IRQs");
+    if (!pir_pico_rx_stream_release(&backend, samples, delayed_oldest))
+        fail("first coalesced block lease unexpectedly stale");
+    if (!wait_for_block(&samples, &words, &delayed_newer, STRESS_BLOCK_US / 2u))
+        fail("second pending block missing after coalesced DMA IRQs");
+    if ((int32_t)(delayed_newer - delayed_oldest) <= 0)
+        fail("coalesced DMA completions were not sequenced oldest-first");
+    if (!pir_pico_rx_stream_release(&backend, samples, delayed_newer))
+        fail("second coalesced block lease unexpectedly stale");
+    if (!pir_pico_rx_stream_get_timing_stats(&backend, &timing) ||
+        timing.timing_fault_count == 0u)
+        fail("coalesced DMA IRQs did not register a timing fault");
+    if (!wait_for_block(&samples, &words, &delayed_newer, STRESS_BLOCK_US * 2u))
+        fail("DMA chain did not recover after coalesced IRQs");
+    if (!pir_pico_rx_stream_release(&backend, samples, delayed_newer))
+        fail("recovered stream lease unexpectedly stale");
     pir_pico_rx_stream_stop(&backend);
     if (pir_pico_rx_stream_take(&backend, &samples, &words, &next_sequence))
         fail("take succeeded after stop");
@@ -122,8 +153,9 @@ int main(void) {
 
     pir_pico_rx_stream_stop(&backend);
     pir_pico_backend_deinit(&backend);
-    printf("PASS: delayed IRQ, sequence ordering, delayed-consumer overrun, stale lease, stop/restart; overruns=%lu\n",
-           (unsigned long)overruns);
+    printf("PASS: bounded IRQ delay, coalesced IRQ recovery, sequence ordering, delayed-consumer overrun, stale lease, stop/restart; overruns=%lu max_irq_late_us=%lu timing_faults=%lu\n",
+           (unsigned long)overruns, (unsigned long)timing.max_irq_lateness_us,
+           (unsigned long)timing.timing_fault_count);
     fflush(stdout);
     while (true) tight_loop_contents();
 }

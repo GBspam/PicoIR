@@ -15,6 +15,10 @@ static bool stream_irq_installed;
 
 static bool valid_sm_pair(uint rx_sm,uint tx_sm){return rx_sm<4u&&tx_sm<4u&&rx_sm!=tx_sm;}
 
+static uint32_t clamp_u32(uint64_t value) {
+    return value > UINT32_MAX ? UINT32_MAX : (uint32_t)value;
+}
+
 static void pir_pico_rx_dma_irq(void) {
     pir_pico_backend_t *b = stream_backend;
     if (!b || !b->rx_streaming) return;
@@ -22,21 +26,49 @@ static void pir_pico_rx_dma_irq(void) {
                     (1u << (uint)b->rx_stream_dma[1]);
     uint32_t pending = dma_hw->ints0 & mask;
     if (!pending) return;
+    const uint64_t now_us = time_us_64();
     dma_hw->ints0 = pending;
+    if (pending == mask) {
+        /* Both completions coalesced. A chain trigger may have reached a channel
+         * before its count was reloaded, so restart the ping-pong chain explicitly. */
+        dma_channel_abort((uint)b->rx_stream_dma[0]);
+        dma_channel_abort((uint)b->rx_stream_dma[1]);
+        dma_hw->ints0 = mask;
+        if (b->rx_stream_timing_fault_count != UINT32_MAX)
+            b->rx_stream_timing_fault_count++;
+    }
+    if (b->rx_stream_last_irq_us != 0u) {
+        uint32_t interval = clamp_u32(now_us - b->rx_stream_last_irq_us);
+        if (interval < b->rx_stream_min_irq_interval_us)
+            b->rx_stream_min_irq_interval_us = interval;
+        if (interval > b->rx_stream_max_irq_interval_us)
+            b->rx_stream_max_irq_interval_us = interval;
+    }
+    b->rx_stream_last_irq_us = now_us;
     for (unsigned i = 0; i < PIR_PICO_RX_STREAM_BUFFERS; ++i) {
         uint ch = (uint)b->rx_stream_dma[i];
         if (!(pending & (1u << ch))) continue;
         if (b->rx_stream_ready[i] || b->rx_stream_in_use[i]) {
-            /* The previous block was not consumed before this buffer filled again. */
             if (b->rx_stream_overrun_count != UINT32_MAX)
                 b->rx_stream_overrun_count++;
         }
         b->rx_stream_sequence[i] = b->rx_stream_next_sequence++;
         b->rx_stream_ready[i] = true;
-        /* Reload this channel while the chained channel captures into the other buffer. */
+        b->rx_stream_blocks_completed++;
+        uint64_t samples = b->rx_stream_blocks_completed *
+                           (uint64_t)b->rx_stream_words * 32u;
+        uint64_t expected_us = b->rx_stream_start_us +
+            (samples * 1000000ull) / b->sample_rate_hz;
+        if (now_us > expected_us) {
+            uint32_t late = clamp_u32(now_us - expected_us);
+            if (late > b->rx_stream_max_irq_lateness_us)
+                b->rx_stream_max_irq_lateness_us = late;
+        }
         dma_channel_set_write_addr(ch, b->rx_stream_buffers[i], false);
         dma_channel_set_trans_count(ch, (uint32_t)b->rx_stream_words, false);
     }
+    if (pending == mask)
+        dma_start_channel_mask(1u << (uint)b->rx_stream_dma[0]);
 }
 
 bool pir_pico_backend_init(pir_pico_backend_t *b, PIO pio, uint rx_sm,
@@ -86,20 +118,45 @@ bool pir_pico_backend_init(pir_pico_backend_t *b, PIO pio, uint rx_sm,
 
     pio_gpio_init(pio, rx_pin);
     pio_sm_set_consecutive_pindirs(pio, rx_sm, rx_pin, 1, false);
+    uint64_t sys_hz = clock_get_hz(clk_sys);
+    uint64_t sample_div256 = (sys_hz * 256u + sample_rate_hz) /
+                             ((uint64_t)sample_rate_hz * 2u);
+    if (sample_div256 < 256u || sample_div256 > 0xFFFFFFu) {
+        pio_remove_program(pio, &picoir_ir_rx_sampler_program, b->rx_offset);
+        pio_sm_unclaim(pio, rx_sm);
+        pio_sm_unclaim(pio, tx_sm);
+        memset(b, 0, sizeof(*b));
+        b->rx_dma_channel = -1; b->tx_dma_channel = -1;
+        for (unsigned i = 0; i < PIR_PICO_RX_STREAM_BUFFERS; ++i) b->rx_stream_dma[i] = -1;
+        return false;
+    }
+    b->sample_rate_hz = (uint32_t)((sys_hz * 256u + sample_div256) /
+                                   (sample_div256 * 2u));
     pio_sm_config rx_cfg = picoir_ir_rx_sampler_program_get_default_config(b->rx_offset);
     sm_config_set_in_pins(&rx_cfg, rx_pin);
     sm_config_set_in_shift(&rx_cfg, false, true, 32);
-    sm_config_set_clkdiv(&rx_cfg, (float)clock_get_hz(clk_sys) /
-                                  ((float)sample_rate_hz * 2.0f));
+    sm_config_set_clkdiv(&rx_cfg, (float)sample_div256 / 256.0f);
     pio_sm_init(pio, rx_sm, b->rx_offset, &rx_cfg);
 
     pio_gpio_init(pio, tx_pin);
     pio_sm_set_consecutive_pindirs(pio, tx_sm, tx_pin, 1, true);
+    uint64_t carrier_div256 = (sys_hz * 256u + ((uint64_t)carrier_hz * 5u) / 2u) /
+                              ((uint64_t)carrier_hz * 5u);
+    if (carrier_div256 < 256u || carrier_div256 > 0xFFFFFFu) {
+        pio_remove_program(pio, &picoir_ir_tx_carrier_program, b->tx_offset);
+        pio_remove_program(pio, &picoir_ir_rx_sampler_program, b->rx_offset);
+        pio_sm_unclaim(pio, rx_sm); pio_sm_unclaim(pio, tx_sm);
+        memset(b, 0, sizeof(*b));
+        b->rx_dma_channel = -1; b->tx_dma_channel = -1;
+        for (unsigned i = 0; i < PIR_PICO_RX_STREAM_BUFFERS; ++i) b->rx_stream_dma[i] = -1;
+        return false;
+    }
+    b->carrier_hz = (uint32_t)((sys_hz * 256u + (carrier_div256 * 5u) / 2u) /
+                               (carrier_div256 * 5u));
     pio_sm_config tx_cfg = picoir_ir_tx_carrier_program_get_default_config(b->tx_offset);
     sm_config_set_set_pins(&tx_cfg, tx_pin, 1);
     sm_config_set_out_shift(&tx_cfg, false, false, 32);
-    sm_config_set_clkdiv(&tx_cfg, (float)clock_get_hz(clk_sys) /
-                                  ((float)carrier_hz * 5.0f));
+    sm_config_set_clkdiv(&tx_cfg, (float)carrier_div256 / 256.0f);
     pio_sm_init(pio, tx_sm, b->tx_offset, &tx_cfg);
     pio_sm_set_enabled(pio, tx_sm, false);
     pio_sm_set_pins_with_mask(pio, tx_sm, 0u, 1u << tx_pin);
@@ -122,6 +179,9 @@ bool pir_pico_rx_stream_start(pir_pico_backend_t *b,uint32_t *buffer0,uint32_t *
     int ch1=dma_claim_unused_channel(false);if(ch1<0){dma_channel_unclaim((uint)ch0);return false;}
     b->rx_stream_dma[0]=ch0;b->rx_stream_dma[1]=ch1;b->rx_stream_buffers[0]=buffer0;b->rx_stream_buffers[1]=buffer1;b->rx_stream_words=words;
     b->rx_stream_ready[0]=false;b->rx_stream_ready[1]=false;b->rx_stream_in_use[0]=false;b->rx_stream_in_use[1]=false;b->rx_stream_sequence[0]=0;b->rx_stream_sequence[1]=0;b->rx_stream_overrun_count=0;b->rx_stream_next_sequence=0;
+    b->rx_stream_timing_fault_count=0;b->rx_stream_blocks_completed=0;
+    b->rx_stream_min_irq_interval_us=UINT32_MAX;b->rx_stream_max_irq_interval_us=0;
+    b->rx_stream_max_irq_lateness_us=0;b->rx_stream_last_irq_us=0;
     pio_sm_clear_fifos(b->pio,b->rx_sm);pio_sm_restart(b->pio,b->rx_sm);
     dma_channel_config cfg0=dma_channel_get_default_config((uint)ch0);
     channel_config_set_transfer_data_size(&cfg0,DMA_SIZE_32);channel_config_set_read_increment(&cfg0,false);channel_config_set_write_increment(&cfg0,true);channel_config_set_dreq(&cfg0,pio_get_dreq(b->pio,b->rx_sm,false));channel_config_set_chain_to(&cfg0,(uint)ch1);
@@ -135,6 +195,7 @@ bool pir_pico_rx_stream_start(pir_pico_backend_t *b,uint32_t *buffer0,uint32_t *
     dma_channel_set_irq0_enabled((uint)ch0,true);dma_channel_set_irq0_enabled((uint)ch1,true);
     irq_set_enabled(DMA_IRQ_0,true);
     b->rx_streaming=true;b->rx_running=true;
+    b->rx_stream_start_us=time_us_64();
     pio_sm_set_enabled(b->pio,b->rx_sm,true);
     dma_start_channel_mask(1u<<(uint)ch0);
     return true;
@@ -169,6 +230,23 @@ bool pir_pico_rx_stream_release(pir_pico_backend_t *b,const uint32_t *samples,ui
 uint32_t pir_pico_rx_stream_overruns(pir_pico_backend_t *b){
     if(!b)return 0;
     uint32_t irq_state=save_and_disable_interrupts();uint32_t count=b->rx_stream_overrun_count;restore_interrupts(irq_state);return count;
+}
+bool pir_pico_rx_stream_get_timing_stats(pir_pico_backend_t *b,
+                                         pir_pico_rx_timing_stats_t *stats){
+    if(!b||!stats||!b->rx_streaming)return false;
+    uint32_t irq_state=save_and_disable_interrupts();
+    stats->effective_sample_rate_hz=b->sample_rate_hz;
+    stats->block_period_us=(uint32_t)(((uint64_t)b->rx_stream_words*32u*1000000u+
+                                       b->sample_rate_hz/2u)/b->sample_rate_hz);
+    stats->overrun_count=b->rx_stream_overrun_count;
+    stats->timing_fault_count=b->rx_stream_timing_fault_count;
+    stats->min_irq_interval_us=b->rx_stream_min_irq_interval_us==UINT32_MAX?0u:
+                               b->rx_stream_min_irq_interval_us;
+    stats->max_irq_interval_us=b->rx_stream_max_irq_interval_us;
+    stats->max_irq_lateness_us=b->rx_stream_max_irq_lateness_us;
+    stats->blocks_completed=b->rx_stream_blocks_completed;
+    restore_interrupts(irq_state);
+    return true;
 }
 void pir_pico_rx_stream_stop(pir_pico_backend_t *b){
     if(!b||!b->rx_streaming)return;

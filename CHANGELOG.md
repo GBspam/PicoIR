@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.21
+- Added a TinyUSB dual-CDC RP2040 firmware target: CDC0 emits raw little-endian packed RX sample blocks without text, while CDC1 accepts console commands and reports diagnostics.
+- Wired leased continuous-DMA RX blocks through the portable frame tracker, sample-to-edge converter, protocol decoder, and learning-state updates; sequence gaps and stale leases reset frame tracking.
+- Added ISR-side DMA timing statistics for effective sample rate, block period, IRQ intervals/lateness, overrun counts, and coalesced IRQ detection. The backend now aborts/re-arms both channels and restarts the ping-pong chain when both completion flags coalesce.
+- Quantized PIO clock dividers explicitly and use the effective sample/carrier rates for software timing conversions.
+- Extended the RP2040 stress firmware to test bounded IRQ latency and recovery after coalesced DMA completion IRQs. These tests compile in CI but still require a physical Pico run; USB enumeration, logic-analyzer timing, and optical behavior remain unvalidated.
+
 ## v0.20
 - Hardened CDC1 `REMOTE SEND` argument validation: protocol-specific address and command widths are checked before encoding, preventing oversized values from being silently truncated.
 - Added console regressions for out-of-range NEC and Sony SIRC12 values and documented the command contract.

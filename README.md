@@ -7,14 +7,14 @@ PicoIR is a universal IR communications platform for the original RP2040-based R
 - Portable consumer-IR encoding/decoding with partial protocol coverage, including NEC-family, Sony SIRC, RC5, RC6, JVC (8-bit address + 8-bit command), and Samsung32. Protocol coverage is not a claim of physical interoperability.
 - A separate Game Boy Color byte-level packet codec, host transfer library, and event-driven link-session coordinator. Game-specific pulse timing and physical handshake/status signaling are not implemented; there is no single IR protocol shared by every Game Boy Color game.
 - Generic explicit timing-window classification, packed GPIO sample conversion to mark/space edges, and a portable frame tracker. `pir_decode_samples()` skips leading idle-space runs; `pir_frame_tracker_feed()` reports frame starts, inter-frame-gap ends, and frame timeouts.
-- A CDC1 command-dispatch contract included in the public `picoir` library target, plus a RAM-only remote database and CSV/JSON export helpers.
+- A CDC1 command-dispatch contract included in the public `picoir` library target, plus a RAM-only remote database and CSV/JSON export helpers. The Pico firmware wires continuous RX DMA into the frame tracker and decoder and includes a TinyUSB dual-CDC application.
 - An optional Pico SDK backend for finite DMA capture, continuous two-buffer ping-pong DMA capture with sequence numbers, leased-buffer overwrite detection, and overrun accounting, and PIO carrier-envelope transmission through an external transistor driver.
 
 ## Hardware backend status
 
-The Pico SDK backend is a reusable library, not a complete firmware image. A GitHub Actions build against Raspberry Pi Pico SDK 2.1.1 now compiles and links this backend; it has not been tested on RP2040 hardware. Continuous capture requires timely draining of its two caller-owned buffers; the overrun counter reports blocks overwritten before consumption. The portable frame tracker reports start/end/timeout events, but callers must feed completed sample blocks to it; the Pico backend does not wire framing automatically. See [`firmware/pico/README.md`](firmware/pico/README.md) before wiring hardware.
+The Pico SDK project now builds a dual-CDC firmware image as well as the reusable backend. It copies leased DMA blocks before processing, tracks frame boundaries, attempts protocol decoding, and updates the CDC1 learning state. ISR-side timing counters estimate DMA completion/IRQ cadence and detect coalesced IRQs; these are not logic-analyzer measurements. The application and backend compile in CI but have not been run on RP2040 hardware. See [`firmware/pico/README.md`](firmware/pico/README.md) for pins, stream behavior, and validation limits.
 
-TinyUSB dual-CDC integration, custom MicroPython integration, persistent flash storage, physical Game Boy connection/echo detection, physical ACK/NAK/status signaling, and game-specific timing profiles remain unimplemented or unvalidated. Do not infer Game Boy timings: use cited timing diagrams or provenance-backed capture fixtures.
+The CDC0 binary channel currently emits unframed little-endian RX sample blocks and has no binary TX command format. Custom MicroPython integration, persistent flash storage, physical Game Boy connection/echo detection, physical ACK/NAK/status signaling, and game-specific timing profiles remain unimplemented or unvalidated. Do not infer Game Boy timings: use cited timing diagrams or provenance-backed capture fixtures.
 
 ## Commands implemented
 
@@ -40,7 +40,7 @@ PicoIR is licensed under **GNU GPL version 3 only**. See [`LICENSE`](LICENSE). T
 ## Known boundaries
 
 - This is a command-dispatch module, not the complete TinyUSB CDC1 line editor or USB application loop.
-- The receiver task must call `pir_console_set_capture()` and/or `pir_console_set_decoded()` when capture/decode results arrive. The `LEARN START` state is an arm flag, not a replacement for receiver integration.
+- The Pico firmware now calls `pir_console_set_capture()` and `pir_console_set_decoded()` when learning is armed and completed frames arrive; other applications using the portable console must provide their own receiver integration.
 - `REMOTE SEND SAVED` re-encodes decoded entries. Exact waveform reproduction is available only for raw entries.
 - The database remains RAM-only; safe persistent flash storage and power-loss-safe records are not implemented.
 - `PIR_PROTO_PANASONIC` currently means a legacy 32-bit Panasonic-like subset only. Standard 48-bit Kaseikyo/Panasonic is explicitly unsupported because the public API lacks vendor, genre, and parity fields; 48-bit frames are guarded against being misclassified as the 32-bit subset.
