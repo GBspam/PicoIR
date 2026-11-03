@@ -10,6 +10,10 @@ static int eq(const char *a,const char *b){while(*a&&*b){if(toupper((unsigned ch
 static bool parse_u32(const char *s,uint32_t *v){if(!s||!*s||!v||*s=='-')return false;char *end=NULL;unsigned long x=strtoul(s,&end,0);if(!end||*end||x>UINT32_MAX)return false;*v=(uint32_t)x;return true;}
 static int hex_value(char c){if(c>='0'&&c<='9')return c-'0';if(c>='a'&&c<='f')return c-'a'+10;if(c>='A'&&c<='F')return c-'A'+10;return -1;}
 static bool fits_bits(uint32_t value,unsigned bits){return bits<32u&&value<(1u<<bits);}
+/* Console execution is serialized; keep the large waveform scratch off the
+ * RP2040's small default stack. */
+static pir_waveform_t command_waveform;
+
 static bool protocol_args_fit(pir_protocol_t p,uint32_t address,uint32_t command){
  unsigned address_bits=0,command_bits=0;
  switch(p){
@@ -52,8 +56,8 @@ bool pir_console_execute(pir_console_state_t *s,pir_remote_db_t *db,const pir_co
   if(eq(av[1],"LEARN")&&n==3){if(eq(av[2],"START")){s->learning=true;return out(io,"LEARNING ARMED\n");}if(eq(av[2],"STOP")){s->learning=false;return out(io,"LEARNING STOPPED\n");}}
   if(eq(av[1],"SAVE")&&n==3){if(s->have_decoded){if(!pir_db_save_decoded(db,av[2],&s->decoded))return out(io,"ERROR: cannot save decoded entry\n")&&false;return out(io,"SAVED DECODED REMOTE\n");}if(s->have_capture){if(!pir_db_save_raw(db,av[2],s->capture,s->capture_count,s->capture_carrier_hz))return out(io,"ERROR: cannot save raw capture\n")&&false;return out(io,"SAVED RAW CAPTURE\n");}return out(io,"ERROR: no decoded signal or capture\n")&&false;}
   if(eq(av[1],"DELETE")&&n==3){if(!pir_db_delete(db,av[2]))return out(io,"ERROR: entry not found\n")&&false;return out(io,"DELETED\n");}
-  if(eq(av[1],"SEND")&&n==4&&eq(av[2],"SAVED")){const pir_remote_entry_t *e=pir_db_find(db,av[3]);if(!e)return out(io,"ERROR: entry not found\n")&&false;if(e->kind==PIR_ENTRY_RAW){if(!io->transmit_raw||!io->transmit_raw(io->transmit_context,e->edges,e->edge_count,e->carrier_hz))return out(io,"ERROR: raw transmit failed\n")&&false;}else{pir_waveform_t w;if(!pir_encode(e->protocol,e->address,e->command,false,e->toggle,&w)||!io->transmit||!io->transmit(io->transmit_context,&w))return out(io,"ERROR: transmit failed\n")&&false;}return out(io,"TRANSMIT COMPLETE\n");}
-  if(eq(av[1],"SEND")&&(n==5||n==6)){pir_protocol_t p;uint32_t addr,cmd;bool toggle=n==6&&eq(av[5],"TOGGLE");if(n==6&&!toggle)return out(io,"ERROR: expected TOGGLE\n")&&false;if(!pir_protocol_parse(av[2],&p)||!parse_u32(av[3],&addr)||!parse_u32(av[4],&cmd))return out(io,"ERROR: invalid protocol/address/command\n")&&false;if(!protocol_args_fit(p,addr,cmd))return out(io,"ERROR: address/command out of range\n")&&false;pir_waveform_t w;if(!pir_encode(p,addr,cmd,false,toggle,&w))return out(io,"ERROR: encode failed or protocol unsupported\n")&&false;if(!io->transmit||!io->transmit(io->transmit_context,&w))return out(io,"ERROR: transmitter unavailable or failed\n")&&false;return out(io,"TRANSMIT COMPLETE\n");}
+  if(eq(av[1],"SEND")&&n==4&&eq(av[2],"SAVED")){const pir_remote_entry_t *e=pir_db_find(db,av[3]);if(!e)return out(io,"ERROR: entry not found\n")&&false;if(e->kind==PIR_ENTRY_RAW){if(!io->transmit_raw||!io->transmit_raw(io->transmit_context,e->edges,e->edge_count,e->carrier_hz))return out(io,"ERROR: raw transmit failed\n")&&false;}else{if(!pir_encode(e->protocol,e->address,e->command,false,e->toggle,&command_waveform)||!io->transmit||!io->transmit(io->transmit_context,&command_waveform))return out(io,"ERROR: transmit failed\n")&&false;}return out(io,"TRANSMIT COMPLETE\n");}
+  if(eq(av[1],"SEND")&&(n==5||n==6)){pir_protocol_t p;uint32_t addr,cmd;bool toggle=n==6&&eq(av[5],"TOGGLE");if(n==6&&!toggle)return out(io,"ERROR: expected TOGGLE\n")&&false;if(!pir_protocol_parse(av[2],&p)||!parse_u32(av[3],&addr)||!parse_u32(av[4],&cmd))return out(io,"ERROR: invalid protocol/address/command\n")&&false;if(!protocol_args_fit(p,addr,cmd))return out(io,"ERROR: address/command out of range\n")&&false;if(!pir_encode(p,addr,cmd,false,toggle,&command_waveform))return out(io,"ERROR: encode failed or protocol unsupported\n")&&false;if(!io->transmit||!io->transmit(io->transmit_context,&command_waveform))return out(io,"ERROR: transmitter unavailable or failed\n")&&false;return out(io,"TRANSMIT COMPLETE\n");}
  }
  if(eq(av[0],"GB")&&n>=2){
   if(eq(av[1],"MODE")&&n==3){
