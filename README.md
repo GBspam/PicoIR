@@ -27,7 +27,7 @@ TinyUSB dual-CDC integration, custom MicroPython integration, persistent flash s
 - `REMOTE SEND SAVED name`
 - `RAW EXPORT CSV` / `RAW EXPORT JSON` (exports the remote database)
 
-All I/O is injected through callbacks. The transmit callback must copy or consume the waveform synchronously before returning; the console itself does not own the PIO/DMA transmitter. Raw replay passes saved edges and carrier metadata to a separate backend callback.
+All I/O is injected through callbacks. The transmit callback must copy or consume the waveform synchronously before returning; the console itself does not own the PIO/DMA transmitter. Raw replay passes saved edges and carrier metadata to a separate backend callback. The CDC1 command parser rejects address or command values that exceed the selected protocol's field width rather than silently truncating them.
 
 ## Export fidelity
 

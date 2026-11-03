@@ -9,6 +9,24 @@ static bool outf(const pir_console_io_t *io,const char *fmt,const char *a,const 
 static int eq(const char *a,const char *b){while(*a&&*b){if(toupper((unsigned char)*a++)!=toupper((unsigned char)*b++))return 0;}return *a==*b;}
 static bool parse_u32(const char *s,uint32_t *v){if(!s||!*s||!v||*s=='-')return false;char *end=NULL;unsigned long x=strtoul(s,&end,0);if(!end||*end||x>UINT32_MAX)return false;*v=(uint32_t)x;return true;}
 static int hex_value(char c){if(c>='0'&&c<='9')return c-'0';if(c>='a'&&c<='f')return c-'a'+10;if(c>='A'&&c<='F')return c-'A'+10;return -1;}
+static bool fits_bits(uint32_t value,unsigned bits){return bits<32u&&value<(1u<<bits);}
+static bool protocol_args_fit(pir_protocol_t p,uint32_t address,uint32_t command){
+ unsigned address_bits=0,command_bits=0;
+ switch(p){
+ case PIR_PROTO_NEC: address_bits=8;command_bits=8;break;
+ case PIR_PROTO_NEC_EXT: address_bits=16;command_bits=8;break;
+ case PIR_PROTO_SONY_SIRC12: address_bits=5;command_bits=7;break;
+ case PIR_PROTO_SONY_SIRC15: address_bits=8;command_bits=7;break;
+ case PIR_PROTO_SONY_SIRC20: address_bits=13;command_bits=7;break;
+ case PIR_PROTO_RC5: address_bits=5;command_bits=7;break;
+ case PIR_PROTO_RC6: address_bits=8;command_bits=8;break;
+ case PIR_PROTO_SAMSUNG: address_bits=16;command_bits=8;break;
+ case PIR_PROTO_PANASONIC: address_bits=16;command_bits=8;break;
+ case PIR_PROTO_JVC: address_bits=8;command_bits=8;break;
+ default: return false;
+ }
+ return fits_bits(address,address_bits)&&fits_bits(command,command_bits);
+}
 static bool parse_hex_bytes(const char *s,uint8_t *out,size_t cap,size_t *count){size_t n=strlen(s);if((n&1u)||n/2u>cap)return false;for(size_t i=0;i<n/2u;i++){int hi=hex_value(s[2u*i]),lo=hex_value(s[2u*i+1u]);if(hi<0||lo<0)return false;out[i]=(uint8_t)((hi<<4)|lo);}*count=n/2u;return true;}
 static bool print_hex_packet(const pir_console_io_t *io,const uint8_t *bytes,size_t n){char line[2u*PIR_GBC_CONSOLE_PACKET_MAX+16u];int k=snprintf(line,sizeof line,"GB PACKET ");if(k<0)return false;size_t used=(size_t)k;for(size_t i=0;i<n;i++){if(used+2u>=sizeof line)return false;int m=snprintf(line+used,sizeof line-used,"%02X",bytes[i]);if(m!=2)return false;used+=2u;}if(used+1u>=sizeof line)return false;line[used++]='\n';return io->write(io->write_context,line,used);}
 static size_t split(char *s,char *argv[],size_t cap){size_t n=0;while(*s){while(isspace((unsigned char)*s))s++;if(!*s)break;if(n==cap)return cap+1;argv[n++]=s;while(*s&&!isspace((unsigned char)*s))s++;if(*s)*s++='\0';}return n;}
@@ -35,7 +53,7 @@ bool pir_console_execute(pir_console_state_t *s,pir_remote_db_t *db,const pir_co
   if(eq(av[1],"SAVE")&&n==3){if(s->have_decoded){if(!pir_db_save_decoded(db,av[2],&s->decoded))return out(io,"ERROR: cannot save decoded entry\n")&&false;return out(io,"SAVED DECODED REMOTE\n");}if(s->have_capture){if(!pir_db_save_raw(db,av[2],s->capture,s->capture_count,s->capture_carrier_hz))return out(io,"ERROR: cannot save raw capture\n")&&false;return out(io,"SAVED RAW CAPTURE\n");}return out(io,"ERROR: no decoded signal or capture\n")&&false;}
   if(eq(av[1],"DELETE")&&n==3){if(!pir_db_delete(db,av[2]))return out(io,"ERROR: entry not found\n")&&false;return out(io,"DELETED\n");}
   if(eq(av[1],"SEND")&&n==4&&eq(av[2],"SAVED")){const pir_remote_entry_t *e=pir_db_find(db,av[3]);if(!e)return out(io,"ERROR: entry not found\n")&&false;if(e->kind==PIR_ENTRY_RAW){if(!io->transmit_raw||!io->transmit_raw(io->transmit_context,e->edges,e->edge_count,e->carrier_hz))return out(io,"ERROR: raw transmit failed\n")&&false;}else{pir_waveform_t w;if(!pir_encode(e->protocol,e->address,e->command,false,e->toggle,&w)||!io->transmit||!io->transmit(io->transmit_context,&w))return out(io,"ERROR: transmit failed\n")&&false;}return out(io,"TRANSMIT COMPLETE\n");}
-  if(eq(av[1],"SEND")&&(n==5||n==6)){pir_protocol_t p;uint32_t addr,cmd;bool toggle=n==6&&eq(av[5],"TOGGLE");if(n==6&&!toggle)return out(io,"ERROR: expected TOGGLE\n")&&false;if(!pir_protocol_parse(av[2],&p)||!parse_u32(av[3],&addr)||!parse_u32(av[4],&cmd))return out(io,"ERROR: invalid protocol/address/command\n")&&false;pir_waveform_t w;if(!pir_encode(p,addr,cmd,false,toggle,&w))return out(io,"ERROR: encode failed or protocol unsupported\n")&&false;if(!io->transmit||!io->transmit(io->transmit_context,&w))return out(io,"ERROR: transmitter unavailable or failed\n")&&false;return out(io,"TRANSMIT COMPLETE\n");}
+  if(eq(av[1],"SEND")&&(n==5||n==6)){pir_protocol_t p;uint32_t addr,cmd;bool toggle=n==6&&eq(av[5],"TOGGLE");if(n==6&&!toggle)return out(io,"ERROR: expected TOGGLE\n")&&false;if(!pir_protocol_parse(av[2],&p)||!parse_u32(av[3],&addr)||!parse_u32(av[4],&cmd))return out(io,"ERROR: invalid protocol/address/command\n")&&false;if(!protocol_args_fit(p,addr,cmd))return out(io,"ERROR: address/command out of range\n")&&false;pir_waveform_t w;if(!pir_encode(p,addr,cmd,false,toggle,&w))return out(io,"ERROR: encode failed or protocol unsupported\n")&&false;if(!io->transmit||!io->transmit(io->transmit_context,&w))return out(io,"ERROR: transmitter unavailable or failed\n")&&false;return out(io,"TRANSMIT COMPLETE\n");}
  }
  if(eq(av[0],"GB")&&n>=2){
   if(eq(av[1],"MODE")&&n==3){

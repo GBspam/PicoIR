@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.20
+- Hardened CDC1 `REMOTE SEND` argument validation: protocol-specific address and command widths are checked before encoding, preventing oversized values from being silently truncated.
+- Added console regressions for out-of-range NEC and Sony SIRC12 values and documented the command contract.
+
 ## v0.19
 - Added explicit leases for continuous RX DMA buffers. Consumers release blocks with their sequence token; release reports if DMA overwrote a block while it was being processed, and overrun accounting includes leased buffers.
 - Added an RP2040-only stream stress-test firmware for delayed IRQs, oldest-first ordering of pending blocks, delayed consumers, overrun accounting, stale leases, and stop/restart. The harness uses the SDK's hardware sync header for interrupt masking; Pico SDK CI compiles it but does not run it on physical hardware.
