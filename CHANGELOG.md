@@ -1,7 +1,7 @@
 ## v0.22
 - Added an idle-only TX carrier setter that quantizes the requested carrier to the RP2040 PIO divider and reports the effective rate.
 - Updated waveform transmission to honor decoded/raw carrier metadata when representable, rejecting invalid requests instead of silently using the previously configured carrier.
-- Programmed PIO dividers with explicit integer/fractional fields to match the quantized rates used by software duration conversion. This is software timing behavior; measured carrier accuracy still requires a logic analyzer.
+- Programmed PIO dividers with explicit integer/fractional fields to match the quantized rates used by software duration conversion. Added hardware-stress-harness assertions for alternate-carrier selection and rejection of zero frequency. This is software timing behavior; measured carrier accuracy still requires a logic analyzer.
 
 # Changelog
 

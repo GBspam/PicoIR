@@ -46,7 +46,7 @@ The firmware uses GPIO2 as active-low receiver input and GPIO3 as active-high TX
 
 ## On-device stream stress test
 
-The `picoir_rx_stream_stress` executable is built when configuring with `-DPICOIR_BUILD_HARDWARE_TESTS=ON` (the Pico SDK CI workflow compiles it but does not run it). Flash the generated UF2 and open its USB serial console. It checks a bounded delayed-IRQ window, monotonic sequence ordering, lease invalidation and overrun accounting under a delayed consumer, plus stop/restart behavior. The RX input is held low with a pull-down; no optical front-end is needed for DMA lifecycle tests. A successful run is hardware evidence for these lifecycle checks only, not protocol timing or optical interoperability.
+The `picoir_rx_stream_stress` executable is built when configuring with `-DPICOIR_BUILD_HARDWARE_TESTS=ON` (the Pico SDK CI workflow compiles it but does not run it). Flash the generated UF2 and open its USB serial console. It checks TX carrier-divider selection and invalid-frequency rejection, a bounded delayed-IRQ window, monotonic sequence ordering, lease invalidation and overrun accounting under a delayed consumer, plus stop/restart behavior. The RX input is held low with a pull-down; no optical front-end is needed for DMA lifecycle tests. A successful run is hardware evidence for these lifecycle checks only, not protocol timing or optical interoperability.
 
 ## Validation still required
 

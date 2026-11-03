@@ -48,6 +48,19 @@ int main(void) {
     if (!pir_pico_backend_init(&backend, pio0, 0, 1, STRESS_RX_PIN, STRESS_TX_PIN,
                                STRESS_SAMPLE_RATE_HZ, 38000u))
         fail("backend init failed");
+    uint32_t original_carrier = backend.carrier_hz;
+    if (!pir_pico_tx_set_carrier_hz(&backend, 36000u))
+        fail("could not select a valid alternate TX carrier");
+    if (backend.carrier_hz < 35000u || backend.carrier_hz > 37000u)
+        fail("effective alternate TX carrier is outside tolerance");
+    uint32_t selected_carrier = backend.carrier_hz;
+    if (pir_pico_tx_set_carrier_hz(&backend, 0u))
+        fail("zero TX carrier was accepted");
+    if (backend.carrier_hz != selected_carrier)
+        fail("rejected TX carrier changed the active setting");
+    if (!pir_pico_tx_set_carrier_hz(&backend, original_carrier))
+        fail("could not restore the initial TX carrier");
+
     gpio_pull_down(STRESS_RX_PIN);
 
     const uint32_t *samples = NULL;
