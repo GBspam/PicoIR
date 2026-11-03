@@ -71,6 +71,8 @@ bool pir_pico_rx_stream_get_timing_stats(pir_pico_backend_t *backend,
                                          pir_pico_rx_timing_stats_t *stats);
 void pir_pico_rx_stream_stop(pir_pico_backend_t *backend);
 typedef struct { uint32_t duration_us; bool carrier_on; } pir_pico_tx_run_t;
+/* Selects a quantized carrier while TX is idle; carrier_hz is updated to the effective rate. */
+bool pir_pico_tx_set_carrier_hz(pir_pico_backend_t *backend, uint32_t carrier_hz);
 bool pir_pico_tx_start(pir_pico_backend_t *backend,const pir_pico_tx_run_t *runs,size_t run_count);
 bool pir_pico_tx_done(pir_pico_backend_t *backend);
 void pir_pico_tx_abort(pir_pico_backend_t *backend);

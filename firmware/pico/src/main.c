@@ -129,8 +129,11 @@ static bool transmit_edges(const pir_edge_t *edges, size_t count, uint32_t carri
         tx_runs[i].carrier_on = edges[i].mark;
     }
 
-    /* The current backend uses its effective configured carrier frequency. */
-    (void)carrier_hz;
+    uint32_t requested_carrier = carrier_hz ? carrier_hz : backend.carrier_hz;
+    if (!pir_pico_tx_set_carrier_hz(&backend, requested_carrier)) {
+        (void)restart_receiver();
+        return false;
+    }
     bool started = pir_pico_tx_start(&backend, tx_runs, count);
     if (!started) {
         (void)restart_receiver();

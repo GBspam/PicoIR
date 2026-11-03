@@ -136,7 +136,7 @@ bool pir_pico_backend_init(pir_pico_backend_t *b, PIO pio, uint rx_sm,
     pio_sm_config rx_cfg = picoir_ir_rx_sampler_program_get_default_config(b->rx_offset);
     sm_config_set_in_pins(&rx_cfg, rx_pin);
     sm_config_set_in_shift(&rx_cfg, false, true, 32);
-    sm_config_set_clkdiv(&rx_cfg, (float)sample_div256 / 256.0f);
+    sm_config_set_clkdiv_int_frac(&rx_cfg, (uint)(sample_div256 >> 8), (uint8_t)(sample_div256 & 0xffu));
     pio_sm_init(pio, rx_sm, b->rx_offset, &rx_cfg);
 
     pio_gpio_init(pio, tx_pin);
@@ -157,7 +157,7 @@ bool pir_pico_backend_init(pir_pico_backend_t *b, PIO pio, uint rx_sm,
     pio_sm_config tx_cfg = picoir_ir_tx_carrier_program_get_default_config(b->tx_offset);
     sm_config_set_set_pins(&tx_cfg, tx_pin, 1);
     sm_config_set_out_shift(&tx_cfg, false, false, 32);
-    sm_config_set_clkdiv(&tx_cfg, (float)carrier_div256 / 256.0f);
+    sm_config_set_clkdiv_int_frac(&tx_cfg, (uint)(carrier_div256 >> 8), (uint8_t)(carrier_div256 & 0xffu));
     pio_sm_init(pio, tx_sm, b->tx_offset, &tx_cfg);
     pio_sm_set_enabled(pio, tx_sm, false);
     pio_sm_set_pins_with_mask(pio, tx_sm, 0u, 1u << tx_pin);
@@ -266,6 +266,26 @@ void pir_pico_rx_stream_stop(pir_pico_backend_t *b){
     b->rx_stream_dma[0]=-1;b->rx_stream_dma[1]=-1;
     pio_sm_clear_fifos(b->pio,b->rx_sm);
     b->rx_streaming=false;b->rx_running=false;b->rx_stream_ready[0]=false;b->rx_stream_ready[1]=false;b->rx_stream_in_use[0]=false;b->rx_stream_in_use[1]=false;b->rx_stream_words=0;
+}
+
+bool pir_pico_tx_set_carrier_hz(pir_pico_backend_t *b, uint32_t carrier_hz) {
+    if (!b || !b->initialized || carrier_hz == 0u || b->tx_running ||
+        b->tx_dma_channel >= 0) return false;
+
+    uint64_t sys_hz = clock_get_hz(clk_sys);
+    if ((uint64_t)carrier_hz * 5u > sys_hz) return false;
+    uint64_t denominator = (uint64_t)carrier_hz * 5u;
+    uint64_t divider256 = (sys_hz * 256u + denominator / 2u) / denominator;
+    if (divider256 < 256u || divider256 > 0xFFFFFFu) return false;
+
+    uint32_t effective_hz = (uint32_t)((sys_hz * 256u + (divider256 * 5u) / 2u) /
+                                       (divider256 * 5u));
+    pio_sm_set_enabled(b->pio, b->tx_sm, false);
+    pio_sm_set_clkdiv_int_frac(b->pio, b->tx_sm,
+                               (uint)(divider256 >> 8),
+                               (uint8_t)(divider256 & 0xffu));
+    b->carrier_hz = effective_hz;
+    return true;
 }
 
 bool pir_pico_tx_start(pir_pico_backend_t *b,const pir_pico_tx_run_t *runs,size_t run_count){
