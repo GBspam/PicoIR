@@ -39,7 +39,7 @@ PicoIR is licensed under **GNU GPL version 3 only**. See [`LICENSE`](LICENSE). T
 
 ## Known boundaries
 
-- This is a command-dispatch module, not the complete TinyUSB CDC1 line editor or USB application loop.
+- The portable console library remains a command-dispatch module; the Pico firmware supplies the CDC1 line reader and USB application loop.
 - The Pico firmware now calls `pir_console_set_capture()` and `pir_console_set_decoded()` when learning is armed and completed frames arrive; other applications using the portable console must provide their own receiver integration.
 - `REMOTE SEND SAVED` re-encodes decoded entries. Exact waveform reproduction is available only for raw entries.
 - The database remains RAM-only; safe persistent flash storage and power-loss-safe records are not implemented.

@@ -122,6 +122,7 @@ bool pir_pico_backend_init(pir_pico_backend_t *b, PIO pio, uint rx_sm,
     uint64_t sample_div256 = (sys_hz * 256u + sample_rate_hz) /
                              ((uint64_t)sample_rate_hz * 2u);
     if (sample_div256 < 256u || sample_div256 > 0xFFFFFFu) {
+        pio_remove_program(pio, &picoir_ir_tx_carrier_program, b->tx_offset);
         pio_remove_program(pio, &picoir_ir_rx_sampler_program, b->rx_offset);
         pio_sm_unclaim(pio, rx_sm);
         pio_sm_unclaim(pio, tx_sm);
